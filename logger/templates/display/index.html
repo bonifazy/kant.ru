@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Главная :: Кроссовки</title>
+    </head>
+    <body>
+    <h1>Основные продажи</h1>
+    {% for shoe in shoes %}
+    <div>
+        <p><b>{{ shoe.model }}</b></p>
+        <p>код товара: {{ shoe.code }}, стоимость: {{ shoe.price }}, обновлено: {{ shoe.price_time|date:"Y-m-d H:i:s" }}, price rate: {{ shoe.price_rate }}</p>
+        <p>год: {{ shoe.year }}, пол: {{ shoe.gender }}, размер: {{ shoe.size }}, в наличии: {{ shoe.count }}, обновлено: {{ shoe.nag_time|date:"Y-m-d H:i:s" }}, instock rate: {{ shoe.nag_rate }}</p>
+    </div>
+    {% endfor %}
+    </body>
+</html>
