@@ -443,8 +443,8 @@ if __name__ == "__main__":
     page = Main(urls=ALL+BRANDS_URLS)
     for i in range(2):
         try:
-            #if not prods:
-            #    prods = page.update_products_table(loop=loop)
+            if not prods:
+                prods = page.update_products_table(loop=loop)
             if not prices:
                 prices = page.update_prices_table(loop=loop)
         except ClientConnectionError:
