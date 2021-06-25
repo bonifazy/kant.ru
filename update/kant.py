@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 
 from lxml import html as lxml_html
-import requests
 import time
 import sqlite3
 import asyncio
 import aiohttp
-from aiohttp.client_exceptions import ClientConnectionError
 
 # Global to main
 DEBUG = True
 print('Debug is', 'on.' if DEBUG else 'off.')
 DJANGO_DB = '../db.sqlite3'
 SHOP = "nagornaya"
-ALL = ['https://www.kant.ru/catalog/shoes/running-shoes/',]
+ALL = ['https://www.kant.ru/catalog/shoes/running-shoes/']
 BRANDS = ['Asics', 'Saucony', 'Mizuno', 'Hoka', 'Adidas', 'Salomon', 'Brooks', 'On', '361°', 'Raidlight']
 BRANDS_URLS = [
     'http://www.kant.ru/catalog/shoes/running-shoes/brand-asics/',
@@ -26,22 +24,24 @@ BRANDS_URLS = [
     'http://www.kant.ru/brand/on/products/',
     'https://www.kant.ru/brand/361/products/',
     ]
-ADIDAS = ['http://www.kant.ru/catalog/shoes/running-shoes/brand-adidas/',]
+ADIDAS = ['http://www.kant.ru/catalog/shoes/running-shoes/brand-adidas/']
 BROOKS = ['http://www.kant.ru/brand/brooks/products/']
 CACHE = r"data/"
 
 tic = lambda: time.time()
+now = tic()
 tac = lambda: '{:.2f}sec'.format(time.time() - now)
 
 # Global to Parse
 TIMEOUT = 0.2
 CHUNK_PARSE_MAIN = 5
 CHUNK = 5
-RATING = 10
+RATING = 10  # Start normal rating to items to db.
+AVAILABLE = "http://www.kant.ru/ajax/loadTableAvailability.php"
+
 
 class Main:
 
-    available_url = "http://www.kant.ru/ajax/loadTableAvailability.php"
     cache_type = "sqlite"  # "sqlite " or "json"
 
     def __init__(self, urls):
@@ -123,40 +123,9 @@ class Main:
         if DEBUG: print('>> end update_product_table: ', tac())
         return True  # если все ок
 
-    def sync_update_prices_table(self):
-        products = {code: url for (code, url) in SQLite().get_products_code_url()}
-        prod_codes = [i for i in products.keys()]
-        prices = {code: [price, timestamp, rating] for (code, price, timestamp, rating) in SQLite().get_prices()}
-        prices_codes = [i for i in prices.keys()]
-        new = set(prod_codes) - set(prices_codes)  # новые коды закинуть в таблицу с ценой и временем обновления
-        old = [i for i in prices_codes if i in prod_codes]  # обновить, если новая цена
-        to_update = dict()  # коды для обновления цены
-        all = len(old)
-        for i, code in enumerate(old):
-            print('\r{}, {}/ {}: {} old codes\r'.format(TAC(), i+1, all, code), end='')  # progress bar
-            table_price = prices[code][0]
-            actual_price = Parser.parse_price(url=products[code])
-            if table_price != actual_price:
-                to_update[code] = actual_price
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        prices_to_db = [(code, price, timestamp, prices[code][2]+1) for code, price in to_update.items()]
-        all = len(new)
-        for i, code in enumerate(new):
-            print('\r{}, {}/ {}: {} new codes\r'.format(TAC(), i+1, all, code), end='')  # progress bar
-            url_ = products[code]
-            actual_price = Parser.parse_price(url_)
-            prices_to_db.append((code, actual_price, timestamp, 1))
-        if prices_to_db:
-            SQLite().to_prices(prices_to_db)
-            print('to db: ', len(prices_to_db), timestamp)
-            for item in prices_to_db:
-                print(item)
-        # info
-        if new:
-            print('new:', len(new), new)
-        if old:
-            print('old:', len(old))
-        pass
+    def update_available_table(self, loop):
+        data = loop.run_until_complete(Parser.parse_available(['']))
+        return data
 
 
 class Parser:
@@ -301,17 +270,6 @@ class Parser:
         return products
 
     @staticmethod
-    def sync_parse_price(url):
-        html = requests.get(url)
-        tree = lxml_html.fromstring(html.text)
-        if tree.xpath("//div[@class='kant__product__price']/span[2]/text()"):
-            price = ''.join(tree.xpath("//div[@class='kant__product__price']/span[2]/text()")[0].split(' '))
-            price = int(price) if price.isdecimal() else 0
-        else:
-            price = 0
-        return price
-
-    @staticmethod
     async def parse_price(codes_urls: list) -> list:
 
         async def get_and_parse(code, url: str) -> tuple:
@@ -348,37 +306,59 @@ class Parser:
         return products  # [(code, price), (code, price)...]
 
     @staticmethod
-    def append_ajax_available(url_, id_):
-        shops = ("Nagornaya", "Timiryazevskaya", "TeplyStan", "Altufevo")
-        in_stock = dict()
-        html = requests.get(url_, params={"ID": id_})
-        tree = lxml_html.fromstring(html.text)
-        popur_row_div = tree.xpath("//div[@data-tab='tab958']/div")  # div class = popur__row
-        for shop, div in zip(shops, popur_row_div):
-            div_content = div.text_content().strip()
-            if "наличии" not in div_content:  # not in stock
-                in_stock[shop] = list()
-            # print(shop, self.in_stock.keys())
-        shop_index = 0  # Nagorn:1, Timiryaz: 2, TStan: 3, Altuf: 4
-        for i in range(4):  # В Москве (div:data-tab=tab958) всего 4 магазина
-            rows = tree.xpath("//div[@data-tab='tab958']/table[{}]/tr".format(i+1))
-            for row in rows:
-                row_list = row.text_content().split()
-                if len(row_list) == 3:  # нашли размеры и наличие
-                    instock = row_list[0], int(row_list[2])
-                    if shop_index == 1 and "Nagornaya" in in_stock.keys():
-                        in_stock["Nagornaya"].append(instock)
-                    elif shop_index == 2 and "Timiryazevskaya" in in_stock.keys():
-                        in_stock["Timiryazevskaya"].append(instock)
-                    elif shop_index == 3 and "TeplyStan" in in_stock.keys():
-                        in_stock["TeplyStan"].append(instock)
-                    elif shop_index == 4 and "Altufevo" in in_stock.keys():
-                        in_stock["Altufevo"].append(instock)
-                    else:
-                        shop_index += 1
-                elif len(row_list) == 6:  # Нашли описание колонки
-                    shop_index += 1
-        return in_stock
+    async def parse_available(codes: list)-> list:
+
+        async def parse_instock(code: int, instock_code: int) -> tuple:
+
+            async with aiohttp.ClientSession() as session:
+                    async with session.get(AVAILABLE, params={'ID':instock_code}) as response:
+                        html = await response.text()
+                        tree = lxml_html.fromstring(html)
+                        popur_row_div = tree.xpath("//div[@data-tab='tab958']/div")  # div class = popur__row
+                        shops = ("Nagornaya", "Timiryazevskaya", "TeplyStan", "Altufevo")
+                        in_stock = dict()
+                        for shop, div in zip(shops, popur_row_div):
+                            div_content = div.text_content().strip()
+                            if "наличии" not in div_content:  # not in stock
+                                in_stock[shop] = list()
+                        shop_index = 0  # Nagorn:1, Timiryaz: 2, TStan: 3, Altuf: 4
+                        for i in range(4):  # В Москве (div:data-tab=tab958) всего 4 магазина
+                            rows = tree.xpath("//div[@data-tab='tab958']/table[{}]/tr".format(i+1))
+                            for row in rows:
+                                row_list = row.text_content().split()
+                                if len(row_list) == 3:  # нашли размеры и наличие
+                                    instock = row_list[0], int(row_list[2])
+                                    if shop_index == 1 and "Nagornaya" in in_stock.keys():
+                                        in_stock["Nagornaya"].append(instock)
+                                    elif shop_index == 2 and "Timiryazevskaya" in in_stock.keys():
+                                        in_stock["Timiryazevskaya"].append(instock)
+                                    elif shop_index == 3 and "TeplyStan" in in_stock.keys():
+                                        in_stock["TeplyStan"].append(instock)
+                                    elif shop_index == 4 and "Altufevo" in in_stock.keys():
+                                        in_stock["Altufevo"].append(instock)
+                                    else:
+                                        shop_index += 1
+                                elif len(row_list) == 6:  # Нашли описание колонки
+                                    shop_index += 1
+            return code, in_stock
+
+        chunk = CHUNK  # count get requests per 1 asyncio session with timeout
+        timeout = TIMEOUT  # add value, if you banned from kant.ru: timeout to between async get requests
+        tasks = list()
+        products = list()  # general solution list
+        count_codes = len(codes)
+        if DEBUG:
+            now = tic()
+        for i, (code, instock_code) in enumerate(codes):
+            tasks.append(asyncio.create_task(parse_instock(code, instock_code)))
+            if len(tasks) == chunk or i+1 == count_codes:
+                if DEBUG:
+                    print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, count_codes, code), end='')
+                new = await asyncio.gather(*tasks)
+                products.extend(new)
+                await asyncio.sleep(0.1)  # add global timeout, if you banned from kant.ru
+                tasks = list()
+        return products
 
 
 class SQLite:
@@ -441,13 +421,13 @@ if __name__ == "__main__":
     prods = False
     prices = False
     page = Main(urls=ALL+BRANDS_URLS)
-    for i in range(2):
+    for i in range(1):
         try:
             if not prods:
                 prods = page.update_products_table(loop=loop)
-            if not prices:
-                prices = page.update_prices_table(loop=loop)
-        except ClientConnectionError:
+            #if not prices:
+            #    prices = page.update_prices_table(loop=loop)
+        except aiohttp.ClientConnectionError:
             print('ConnectionError. Reconnect..')
             time.sleep(30)
 
