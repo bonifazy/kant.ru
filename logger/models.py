@@ -14,7 +14,7 @@ class Products(models.Model):
     pronation = models.CharField(max_length=30, verbose_name='Пронация')
     article = models.CharField(max_length=30, verbose_name='Артикул')
     season = models.CharField(max_length=30, verbose_name='Сезон')
-    rating = models.PositiveSmallIntegerField(default=0, verbose_name='***')
+    rating = models.PositiveSmallIntegerField(default=0, verbose_name='Рейтинг')
 
     def __str__(self):
         return '{}: {}'.format(self.code, self.model)
