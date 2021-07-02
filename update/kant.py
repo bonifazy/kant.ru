@@ -6,6 +6,7 @@ import time
 import sqlite3
 import asyncio
 import aiohttp
+import sys
 
 # Global to main
 DEBUG = True
@@ -110,7 +111,7 @@ class Main:
             solution_new_list = [(code, price, timestamp, (lambda i: RATING if i > 0 else 1)(price)) for (code, price) in new_codes_prices]
             if solution_new_list:
                 self.db.to_prices(solution_new_list)
-                if DEBUG: print('new prices to db: ', len(solution_new_list), timestamp)
+                if DEBUG: print('new prices to db: ', len(solution_new_list), *solution_new_list, timestamp)
         # для моделей вышедших из магазина, но появившихся снова, рейтинг 1+1 = 2
         old = set(prices_codes) & set(prod_codes)  # проверите, уже имеющиеся, обновить, если новая цена, увеличить рейтинг +1
         if old:
@@ -127,8 +128,8 @@ class Main:
                         break
             if solution_old_list:
                 self.db.to_prices(solution_old_list)
-                if DEBUG: print('update prices in db: ', len(solution_old_list), timestamp)
-        if DEBUG: print('>> end update_product_table: ', tac())
+                if DEBUG: print('update prices in db: ', len(solution_old_list), *solution_old_list, timestamp)
+        if DEBUG: print('>> end update_prices_table: ', tac())
         return True  # если все ок
 
     def update_instock_table(self):
@@ -348,7 +349,7 @@ class Parser:
                 tasks = list()
                 await asyncio.sleep(TIMEOUT)
             if DEBUG:
-                print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, all_urls, url), end='')  # progress bar
+                print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, all_urls), end='')  # progress bar
         if DEBUG:
             print('{} worked parse_details. Parsed {} items.'.format(tac(), len(products)))
         return products
@@ -537,6 +538,18 @@ class SQLite:
 
 
 def main(load_prods=False, load_prices=False, load_instock=False):
+    load_prods = load_prods
+    load_prices = load_prices
+    load_instock = load_instock
+    args = sys.argv
+    if len(args) > 1:
+        for argv in args:
+            if argv.lower() == 'products':
+                load_prods = True
+            if argv.lower() == 'prices':
+                load_prices = True
+            if argv.lower() == 'instock':
+                load_instock = True
     page = Main()
     for i in range(3):
         try:
@@ -546,12 +559,12 @@ def main(load_prods=False, load_prices=False, load_instock=False):
                 load_prices = not page.update_prices_table()
             if load_instock:
                 load_instock = not page.update_instock_table()
-        except aiohttp.ClientConnectionError:
+        except aiohttp.ClientConnectionError as err:
             print('ConnectionError. Reconnect..')
             time.sleep(10)
 
 
 if __name__ == "__main__":
     now = tic()
-    main(False, False, True)
+    main(False, False, False)
     print(tac(), 'worked app.')
