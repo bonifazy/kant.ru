@@ -209,17 +209,18 @@ def main(load_prods=False, load_prices=False, load_instock=False):
             if argv.lower() == 'instock':
                 load_instock = True
     page = Main()
-    for i in range(3):
-        try:
-            if load_prods:
-                load_prods = not page.update_products_table()
-            if load_prices:
-                load_prices = not page.update_prices_table()
-            if load_instock:
-                load_instock = not page.update_instock_table()
-        except ClientConnectionError as err:
-            print('ConnectionError. Reconnect..')
-            time.sleep(10)
+    if hasattr(page, 'db'):  # if normal connect to db
+        for i in range(3):
+            try:
+                if load_prods:
+                    load_prods = not page.update_products_table()
+                if load_prices:
+                    load_prices = not page.update_prices_table()
+                if load_instock:
+                    load_instock = not page.update_instock_table()
+            except ClientConnectionError as err:
+                print('ConnectionError. Reconnect..')
+                time.sleep(10)
 
 
 if __name__ == "__main__":

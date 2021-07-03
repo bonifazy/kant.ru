@@ -32,7 +32,7 @@ BROOKS = ['http://www.kant.ru/brand/brooks/products/']
 #            для модуля 'db'
 #
 # полный путь к базе данных либо с bash шаблоном, т.к все равно после обрабатывается os.path
-DB_DIR = '/Users/dim/kant/db.sqlite3'  # True dir to db or '../db.sqlite3'
+DB_DIR = '/home/dim/kant/db.sqlite3'  # True dir to db or '../db.sqlite3'
 
 #
 #            для модуля 'parser'
