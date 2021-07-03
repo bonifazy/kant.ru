@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 from lxml import html as lxml_html
 
-from settings import DEBUG, CHUNK, TIMEOUT, AVAILABLE
+from settings import DEBUG, RATING, CHUNK, TIMEOUT, AVAILABLE
 
 if DEBUG:
     tic = lambda: time.time()
@@ -151,7 +151,7 @@ class Parser:
                 tasks = list()
                 await asyncio.sleep(TIMEOUT)
             if DEBUG:
-                print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, all_urls), end='')  # progress bar
+                print('\r{} sec, {}/ {}\r'.format(tac(), i+1, all_urls), end='')  # progress bar
         if DEBUG:
             print('>>> End parse_details on {} sec. Parsed {} items.\n'.format(tac(), len(products)))
         return products  # [(code, brand, model, url, img, age), (code, brand, model, ..), ...,]
