@@ -3,32 +3,33 @@ import asyncio
 import aiohttp
 from lxml import html as lxml_html
 
-from settings import DEBUG, CHUNK, TIMEOUT, AVAILABLE
+from settings import DEBUG, RATING, CHUNK, TIMEOUT, AVAILABLE, BRANDS
 
 if DEBUG:
     tic = lambda: time.time()
+
 
 class Parser:
 
     @staticmethod
     async def parse_main(urls: list, finish: int) -> list:
 
-        async def main_page_urls(url: str, params: int) -> list:
+        async def main_page_urls(url_: str, params_: int) -> list:
             urls = list()
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, params={'PAGEN_1':params}) as response:
+                async with session.get(url_, params={'PAGEN_1': params_}) as response:
                     html = await response.text()
-                    if "kant__catalog__item" in html:  # найти urls всех товаров
-                        # Если на странице есть сетка с товаром, то проверяем каждый товар, ищем его url
-                        tree = lxml_html.fromstring(html)
-                        a_tags = tree.xpath("//div[@class='kant__catalog__item']//a")
-                        for item in a_tags:
-                            name = item.values()[1].lower()
-                            if 'кроссовки' in name or 'марафонки' in name:
-                                item_url = "http://kant.ru{}".format(item.values()[0])
-                                urls.append(item_url)
-                    else:  # это вообще не страница с кроссовками, остановить корутины!
-                        return list()
+            if "kant__catalog__item" in html:  # найти urls всех товаров
+                # Если на странице есть сетка с товаром, то проверяем каждый товар, ищем его url
+                tree = lxml_html.fromstring(html)
+                a_tags = tree.xpath("//div[@class='kant__catalog__item']//a")
+                for item in a_tags:
+                    name = item.values()[1].lower()
+                    if 'кроссовки' in name or 'марафонки' in name:
+                        item_url = "http://kant.ru{}".format(item.values()[0])
+                        urls.append(item_url)
+            else:  # это вообще не страница с кроссовками, остановить корутины!
+                return list()
             return urls
 
         if DEBUG:
@@ -44,7 +45,8 @@ class Parser:
             for page_num in range(1, finish+1):  # бегаем по страницам каждого url
                 if DEBUG:
                     # progress bar
-                    print('\r{}, {}/ {} progress. Now {} page of {}\r'.format(tac(), i+1, all_urls, page_num, url), end='')
+                    print('\r{}, {}/ {} progress. Now {} page of {}\r'.format(
+                        tac(), i+1, all_urls, page_num, url), end='')
                 tasks.append(asyncio.create_task(main_page_urls(url, page_num)))
                 if len(tasks) == chunk or page_num == finish:
                     new = await asyncio.gather(*tasks)
@@ -64,75 +66,76 @@ class Parser:
     @staticmethod
     async def parse_details(urls: list) -> list:
 
-        async def parse(url: str, timestamp: str) -> tuple:
+        async def parse(url_: str, timestamp_: str) -> tuple:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
+                async with session.get(url_) as response:
                     html = await response.text()
-                    tree = lxml_html.fromstring(html)
-                    running = False  # Точно ли это кроссовки?
-                    brand = None
-                    # commons attrs from xpath objs: values, text, xpath, text_content, keys, label, items, base, attrib
-                    for item in tree.xpath("//div[@class='kant__product__detail-item']"):  # карточка описания товара
-                        column = item.xpath("span[1]/text()")[0]
-                        if len(item.xpath("span[2]/text()")) > 0:
-                            value = item.xpath("span[2]/text()")[0]
-                            if (column == 'Назначение' and 'бег' in value) or \
-                                    (column == 'Тип' and 'кроссовки' in value or 'марафонки' in value):
-                                running = True
-                            if column == 'Бренд':
-                                brand = value.lower()
-                    if running:  # это точно карточка кроссовки!
-                        age = gender = year = article = season = use = pronation = ''
-                        name = tree.xpath("//div[@id='kantMainCardProduct']/h1/text()")[0].lower()
-                        if brand is None:
-                            if 'кроссовки' in name or 'марафонки' in name:
-                                temp_brands = [i.lower() for i in BRANDS]
-                                temp = [i for i in name.split() if i in temp_brands]
-                                if temp:
-                                    brand = temp[0]
-                        model = name.partition(brand)[2].strip()
-                        brand = brand.title()
-                        code = tree.xpath("//div[@class='kant__product__code']/strong/text()")[0]
-                        code = int(code) if code.isdecimal() else 0
-                        if tree.xpath("//div[@class='kant__product__color__thumbs']//img"):
-                            img = 'http://kant.ru' + \
-                                  tree.xpath("//div[@class='kant__product__color__thumbs']//img")[0].values()[0]
-                        else:
-                            img = 'http://kant.ru'
-                        for item in tree.xpath("//div[@class='kant__product__detail-item']"):
-                            column = item.xpath("span[1]/text()")[0]
-                            if len(item.xpath("span[2]/text()")) > 0:
-                                value = item.xpath("span[2]/text()")[0]
-                                if column == 'Возраст':
-                                    age = value
-                                if column == 'Пол':
-                                    gender = value
-                                if column == 'Модельный год':
-                                    year = value
-                                if column == 'Покрытие':
-                                    use = value
-                                if column == 'Пронация':
-                                    pronation = value
-                                if column == 'Артикул':
-                                    article = value
-                                if column == 'Сезон':
-                                    season = value
-                        # special to Saucony brand:
-                        if brand == 'Saucony' and model.startswith('s-'):
-                            age = 'junior' if age == '' else age
-                        # end special Saucony
-                        #
-                        # special to Hoka brand:
-                        if brand == 'Hoka':
-                            if model.startswith('m '):
-                                gender = 'man' if gender == '' else gender
-                            elif model.startswith('w '):
-                                gender = 'woman' if gender == '' else gender
-                            model = model[2:]
-                        # end special Hoka
-                        # TODO
-                        rating = RATING
-            return code, brand, model, url, img, age, gender, year, use, pronation, article, season, rating, timestamp
+            if not html:
+                return None, None  # output need tuple return
+            code = brand = model = img = rating = None
+            age = gender = year = article = season = use = pronation = ''
+            tree = lxml_html.fromstring(html)
+            running = False  # Точно ли это кроссовки?
+            # commons attrs from xpath objs: values, text, xpath, text_content, keys, label, items, base, attrib
+            for item in tree.xpath("//div[@class='kant__product__detail-item']"):  # карточка описания товара
+                column = item.xpath("span[1]/text()")[0]
+                if len(item.xpath("span[2]/text()")) > 0:
+                    value = item.xpath("span[2]/text()")[0]
+                    if (column == 'Назначение' and 'бег' in value) or \
+                            (column == 'Тип' and 'кроссовки' in value or 'марафонки' in value):
+                        running = True
+                    if column == 'Бренд':
+                        brand = value.lower()
+            if running:  # это точно карточка кроссовки!
+                name = tree.xpath("//div[@id='kantMainCardProduct']/h1/text()")[0].lower()
+                if brand is None:
+                    if 'кроссовки' in name or 'марафонки' in name:
+                        temp = [i for i in name.split() if i in [i.lower() for i in BRANDS]]
+                        if temp:
+                            brand = temp[0]
+                model = name.partition(brand)[2].strip()
+                brand = brand.title()
+                code = tree.xpath("//div[@class='kant__product__code']/strong/text()")[0]
+                code = int(code) if code.isdecimal() else 0
+                if tree.xpath("//div[@class='kant__product__color__thumbs']//img"):
+                    img = 'http://kant.ru' + \
+                          tree.xpath("//div[@class='kant__product__color__thumbs']//img")[0].values()[0]
+                else:
+                    img = 'http://kant.ru'
+                for item in tree.xpath("//div[@class='kant__product__detail-item']"):
+                    column = item.xpath("span[1]/text()")[0]
+                    if len(item.xpath("span[2]/text()")) > 0:
+                        value = item.xpath("span[2]/text()")[0]
+                        if column == 'Возраст':
+                            age = value
+                        if column == 'Пол':
+                            gender = value
+                        if column == 'Модельный год':
+                            year = value
+                        if column == 'Покрытие':
+                            use = value
+                        if column == 'Пронация':
+                            pronation = value
+                        if column == 'Артикул':
+                            article = value
+                        if column == 'Сезон':
+                            season = value
+                # special to Saucony brand:
+                if brand == 'Saucony' and model.startswith('s-'):
+                    age = 'junior' if age == '' else age
+                # end special Saucony
+                #
+                # special to Hoka brand:
+                if brand == 'Hoka':
+                    if model.startswith('m '):
+                        gender = 'man' if gender == '' else gender
+                    elif model.startswith('w '):
+                        gender = 'woman' if gender == '' else gender
+                    model = model[2:]
+                # end special Hoka
+                # TODO
+                rating = RATING
+            return code, brand, model, url_, img, age, gender, year, use, pronation, article, season, rating, timestamp_
 
         if DEBUG:
             now = tic()
@@ -141,17 +144,17 @@ class Parser:
         products = list()
         all_urls = len(urls)
         tasks = list()
-        chunk = CHUNK
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
         for i, url in enumerate(urls):
             tasks.append(asyncio.create_task(parse(url, timestamp)))
-            if len(tasks) == chunk or i+1 == all_urls:
+            if len(tasks) == CHUNK or i+1 == all_urls:
                 new = await asyncio.gather(*tasks)
+                new = [i for i in new if i[0] is not None]  # valid parsing from async def 'parse'
                 products.extend(new)
                 tasks = list()
                 await asyncio.sleep(TIMEOUT)
             if DEBUG:
-                print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, all_urls), end='')  # progress bar
+                print('\r{} sec, {}/ {}\r'.format(tac(), i+1, all_urls), end='')  # progress bar
         if DEBUG:
             print('>>> End parse_details on {} sec. Parsed {} items.\n'.format(tac(), len(products)))
         return products  # [(code, brand, model, url, img, age), (code, brand, model, ..), ...,]
@@ -163,15 +166,17 @@ class Parser:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
                     html = await response.text()
-                    tree = lxml_html.fromstring(html)
-                    if tree.xpath("//div[@class='kant__product__price']/span[2]/text()"):
-                        price = ''.join(tree.xpath("//div[@class='kant__product__price']/span[2]/text()")[0].split(' '))
-                        price = int(price) if price.isdecimal() else 0
-                    else:
-                        price = 0
-                    return code, price
+            if not html:
+                return None, None
+            tree = lxml_html.fromstring(html)
+            if tree.xpath("//div[@class='kant__product__price']/span[2]/text()"):
+                price = ''.join(tree.xpath("//div[@class='kant__product__price']/span[2]/text()")[0].split(' '))
+                price = int(price) if price.isdecimal() else 0
+            else:
+                price = 0
 
-        chunk = CHUNK  # count get requests per 1 asyncio session with timeout
+            return code, price
+
         tasks = list()
         products = list()  # general solution list
         all_urls = len(codes_urls)
@@ -181,10 +186,11 @@ class Parser:
             print('\r\n>>> Start parse_price at ', time.strftime('%H:%M:%S', time.localtime()))
         for i, (code, url) in enumerate(codes_urls):
             tasks.append(asyncio.create_task(get_and_parse(code, url)))
-            if len(tasks) == chunk or i+1 == all_urls:
+            if len(tasks) == CHUNK or i+1 == all_urls:
                 if DEBUG:
                     print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, all_urls, url), end='')
                 new = await asyncio.gather(*tasks)
+                new = [i for i in new if i[0] is not None]
                 products.extend(new)
                 await asyncio.sleep(TIMEOUT)  # add value if you banned from kant.ru
                 tasks = list()
@@ -196,51 +202,62 @@ class Parser:
     @staticmethod
     async def parse_available(codes: list)-> list:
 
-        async def parse_instock(code: int, instock_code: int) -> tuple:
+        async def parse_instock(code_: int, instock_code_: int) -> tuple:
 
             async with aiohttp.ClientSession() as session:
-                async with session.get(AVAILABLE, params={'ID':instock_code}) as response:
+                async with session.get(AVAILABLE, params={'ID': instock_code_}) as response:
                     html = await response.text()
-                    tree = lxml_html.fromstring(html)
-                    popur_row_div = tree.xpath("//div[@data-tab='tab958']/div")  # div class = popur__row
-                    shops = ("Nagornaya", "Timiryazevskaya", "TeplyStan", "Altufevo")
-                    in_stock = dict()
-                    for shop, div in zip(shops, popur_row_div):
-                        div_content = div.text_content().strip()
-                        if "наличии" not in div_content:  # not in stock
-                            in_stock[shop] = list()
-                    shop_index = 0  # Nagorn:1, Timiryaz: 2, TStan: 3, Altuf: 4
-                    for i in range(4):  # В Москве (div:data-tab=tab958) всего 4 магазина
-                        rows = tree.xpath("//div[@data-tab='tab958']/table[{}]/tr".format(i+1))
-                        for row in rows:
-                            row_list = row.text_content().split()
-                            if len(row_list) == 3:  # нашли размеры и наличие
-                                temp = row_list[0].lower()
-                                if temp.startswith('u'):
-                                    size = '.'.join(temp.split(':')[1].split(','))
-                                if temp.startswith('eur'):
-                                    size = '.'.join(temp.split(':')[1].split(','))
-                                if size.isdecimal():
-                                    size = float(size)
-                                elif size.startswith('k'):
-                                    size = size[1:] if size[1:].isdecimal() else 0
-                                instock = size, int(row_list[2])
-                                if shop_index == 1 and "Nagornaya" in in_stock.keys():
-                                    in_stock["Nagornaya"].append(instock)
-                                elif shop_index == 2 and "Timiryazevskaya" in in_stock.keys():
-                                    in_stock["Timiryazevskaya"].append(instock)
-                                elif shop_index == 3 and "TeplyStan" in in_stock.keys():
-                                    in_stock["TeplyStan"].append(instock)
-                                elif shop_index == 4 and "Altufevo" in in_stock.keys():
-                                    in_stock["Altufevo"].append(instock)
-                                else:
-                                    shop_index += 1
-                            elif len(row_list) == 6:  # Нашли описание колонки
-                                shop_index += 1
-            return code, in_stock
+            if not html:
+                return None, None
+            tree = lxml_html.fromstring(html)
+            popur_row_div = tree.xpath("//div[@data-tab='tab958']/div")  # div class = popur__row
+            tables = tree.xpath("//div[@data-tab='tab958']/table")
+            table_index = 0
+            shops = ("Nagornaya", "Timiryazevskaya", "TeplyStan", "Altufevo")
+            in_stock = dict()
+            for i, div in enumerate(popur_row_div):
+                div_content = div.text_content().lower()
+                if 'нагорная' in div_content:
+                    if 'нет в наличии' not in div_content:
+                        shop = shops[0]
+                    else:
+                        continue
+                if 'тимирязевская' in div_content:
+                    if 'нет в наличии' not in div_content:
+                        shop = shops[1]
+                    else:
+                        continue
+                if 'теплый стан' in div_content:
+                    if 'нет в наличии' not in div_content:
+                        shop = shops[2]
+                    else:
+                        continue
+                if 'алтуфьево' in div_content:
+                    if 'нет в наличии' not in div_content:
+                        shop = shops[3]
+                    else:
+                        break
+                in_stock[shop] = list()
+                table = tables[table_index]
+                table_index += 1
+                tr = table.xpath("tr")
+                for row in tr:
+                    row_list = row.text_content().split()
+                    if len(row_list) == 3:  # нашли размеры и наличие
+                        temp = row_list[0].lower()
+                        size = None
+                        if temp.startswith('u'):
+                            size = '.'.join(temp.split(':')[1].split(','))
+                        if temp.startswith('eur'):
+                            size = '.'.join(temp.split(':')[1].split(','))
+                        if size.isdecimal():
+                            size = float(size)
+                        elif size.startswith('k'):
+                            size = size[1:] if size[1:].isdecimal() else 0
+                        in_stock[shop].append((size, int(row_list[2])))
 
-        chunk = CHUNK  # count get requests per 1 asyncio session with timeout
-        timeout = TIMEOUT  # add value, if you banned from kant.ru: timeout to between async get requests
+            return code_, in_stock
+
         tasks = list()
         products = list()  # general solution list
         count_codes = len(codes)
@@ -250,12 +267,13 @@ class Parser:
             print('\r\n>>> Start parse_available at ', time.strftime('%H:%M:%S', time.localtime()))
         for i, (code, instock_code) in enumerate(codes):
             tasks.append(asyncio.create_task(parse_instock(code, instock_code)))
-            if len(tasks) == chunk or i+1 == count_codes:
+            if len(tasks) == CHUNK or i+1 == count_codes:
                 if DEBUG:
                     print('\r{} sec, {}/ {}: {}\r'.format(tac(), i+1, count_codes, code), end='')
                 new = await asyncio.gather(*tasks)
+                # new = [i for i in new if i[0] is not None]
                 products.extend(new)
-                await asyncio.sleep(TIMEOUT * 0.5)  # приходит чистый json без html, уменьшаем таймаут
+                await asyncio.sleep(TIMEOUT * 0.5)  # приходит чистый json без html, нагрузка ниже, уменьшаем таймаут
                 tasks = list()
         if DEBUG:
             print('>>> End parse_available on {} sec. Parsed {} items.\n'.format(tac(), len(products)))
