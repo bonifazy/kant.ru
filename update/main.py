@@ -28,7 +28,7 @@ class Main:
         self.loop = asyncio.get_event_loop()
 
     def __del__(self):
-        if hasattr(Main, 'db'):
+        if hasattr(self, 'db'):
             self.db.close()
 
     def update_products_table(self):
@@ -37,11 +37,11 @@ class Main:
             now = tic()
             tac = lambda: '{:.2f}sec'.format(time.time() - now)
             print('\r\n> Start update_products_table..')
-        urls = self.loop.run_until_complete(Parser.parse_main(self.url_list, self.finish_num_page))  # загружаем базу urls страниц товаров с сайта
+        # загружаем базу urls страниц товаров с сайта
+        urls = self.loop.run_until_complete(Parser.parse_main(self.url_list, self.finish_num_page))
         unic_urls = set(urls)  # уникальные ссылки на продукты с сайта
-        # unic_urls.remove('http://kant.ru/catalog/product/3004861/')
         url_from_db = set(self.db.get_last_update_products())
-        check_urls = unic_urls - url_from_db  # urls, которых нет, либо низкий рейтинг в базе 'products', нужно проверить
+        check_urls = unic_urls - url_from_db  # urls, которых нет, либо низкий рейтинг в базе 'products',нужно проверить
         urls_not_instock = url_from_db - unic_urls # urls, которые закончились в магазине
         url_from_db_small_rate = set(self.db.get_products_urls_rating_to_normal())
         urls_to_normal_rate = url_from_db_small_rate & check_urls  # изменить на RATING
@@ -53,16 +53,17 @@ class Main:
             self.db.update_products_rating_to_normal(urls_to_normal_rate)
         if new_urls:
             self.products = self.loop.run_until_complete(Parser.parse_details(list(new_urls)))
-            self.db.to_products(self.products)
-        else:
-            if DEBUG:
-                print('without call parse_details')
+            if self.products:
+                self.db.to_products(self.products)
+            else:
+                if DEBUG:
+                    print('without call parse_details')
         if DEBUG:
             print('\tfrom db, rate {}: {}'.format(RATING, len(url_from_db)))
             print('\tfrom kant.ru: ', len(unic_urls))
             print('\tNot in stock:', urls_not_instock)
             print('\tUpdate rate 1 to normal:', urls_to_normal_rate)
-            print('\tNew:', new_urls)
+            print('\tNew:', len(self.products))
             print('> End update_product_table {}.'.format(tac()))
         return True  # если все ок
 
@@ -133,22 +134,7 @@ class Main:
             if SHOP in instock.keys():
                 loaded_instock[SHOP][code] = list()
                 for sizes in instock[SHOP]:
-                    """ for test
-                    if code == 1648580:
-                        if sizes[0] == 9.0:
-                            continue
-                        if float(sizes[0]) == 8.5:
-                            loaded_instock[SHOP][code].append((8.5, 1, timestamp, 10))
-                            continue
-                    if code == 1648581:
-                        if sizes[0] == 9.0:
-                            continue
-                        if float(sizes[0]) == 8.5:
-                            loaded_instock[SHOP][code].append((8.5, 1, timestamp, 10))
-                            continue
-                    """
                     loaded_instock[SHOP][code].append((float(sizes[0]), sizes[1], timestamp, RATING))
-
         last_update_instock = dict()
         last_update_instock[SHOP] = dict()
         for code, size, count, time_, rate in self.db.get_instock_nagornaya_last_update():

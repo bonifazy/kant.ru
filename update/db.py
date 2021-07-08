@@ -1,18 +1,21 @@
 import sqlite3
 import os.path
+from pathlib import Path
 
-from settings import DB_DIR, RATING
+from settings import DB_NAME, RATING
 
 
 class SQLite:
 
     def __init__(self):
-        db_name = os.path.abspath(DB_DIR)
-        if os.path.isfile(db_name):
-            self.conn = sqlite3.connect(db_name)
+        parent_dir = Path(__file__).resolve().parent.parent  # to real path to 'db.sqlite3' file
+        db = os.path.join(parent_dir, DB_NAME)  # path + file with any OS
+        print()
+        if os.path.isfile(db):
+            self.conn = sqlite3.connect(db)
             self.cur = self.conn.cursor()
         else:
-            print('no access to db.sqlite3 :-(\nEdit DB_DIR in kant/update/settings.py')
+            print('no access to db.sqlite3 :-(\nEdit DB_NAME in kant/update/settings.py')
 
     def to_products(self, products:list):
         sql = 'insert into products (code, brand, model, url, img, age, gender, year, use, pronation, article, ' \
@@ -45,6 +48,11 @@ class SQLite:
 
     def get_products_code_url(self):
         self.cur.execute("select code, url from products")
+        codes = self.cur.fetchall()
+        return codes
+
+    def get_products_code_url_test(self):
+        self.cur.execute("select code, url from products where brand = 'Brooks'")
         codes = self.cur.fetchall()
         return codes
 
