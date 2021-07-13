@@ -2,7 +2,7 @@
 #            для модуля 'main', 'parser', 'db'
 #
 # дополнительный лог с помощью print по всему приложению, включая модули 'db' и 'parser'
-DEBUG = False
+DEBUG = True
 
 # начальный рейтинг для таблиц products, prices, instock_nagornaya
 RATING = 4
@@ -10,21 +10,21 @@ RATING = 4
 #            для модуля 'main'
 #
 # одинаковый формат записи, как в выгрузке размеров с AVAILABLE запроса
-SHOP = "Nagornaya"
+SHOPS = ('Nagornaya', 'Timiryazevskaya', 'TeplyStan', 'Altufevo')
 
 # ссылки на беговые модели кроссовок на заполнение и обновление базы данных
-ALL = ['http://www.kant.ru/catalog/shoes/running-shoes/']
+ALL = ['https://www.kant.ru/catalog/shoes/running-shoes/']
 BRANDS = ['Asics', 'Saucony', 'Mizuno', 'Hoka', 'Adidas', 'Salomon', 'Brooks', 'On', '361°', 'Raidlight']
 BRANDS_URLS = [
-    'http://www.kant.ru/catalog/shoes/running-shoes/brand-asics/',
-    'http://www.kant.ru/catalog/shoes/running-shoes/brand-saucony/',
-    'http://www.kant.ru/catalog/shoes/running-shoes/brand-mizuno/',
-    'http://www.kant.ru/catalog/shoes/running-shoes/brand-hoka/',
-    'http://www.kant.ru/catalog/shoes/running-shoes/brand-adidas/',
-    'http://www.kant.ru/catalog/shoes/running-shoes/krossovki/brand-salomon/',
-    'http://www.kant.ru/brand/brooks/products/',
-    'http://www.kant.ru/brand/on/products/',
-    'http://www.kant.ru/brand/361/products/',
+    'https://www.kant.ru/catalog/shoes/running-shoes/brand-asics/',
+    'https://www.kant.ru/catalog/shoes/running-shoes/brand-saucony/',
+    'https://www.kant.ru/catalog/shoes/running-shoes/brand-mizuno/',
+    'https://www.kant.ru/catalog/shoes/running-shoes/brand-hoka/',
+    'https://www.kant.ru/catalog/shoes/running-shoes/brand-adidas/',
+    'https://www.kant.ru/catalog/shoes/running-shoes/krossovki/brand-salomon/',
+    'https://www.kant.ru/brand/brooks/products/',
+    'https://www.kant.ru/brand/on/products/',
+    'https://www.kant.ru/brand/361/products/',
 ]
 
 #

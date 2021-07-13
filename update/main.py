@@ -7,7 +7,7 @@ from aiohttp import ClientConnectionError
 
 from db import SQLite
 from parser import Parser
-from settings import DEBUG, SHOP, RATING, ALL, BRANDS_URLS
+from settings import DEBUG, RATING, ALL, BRANDS_URLS, SHOPS
 # дополнительный лог с помощью print по всему приложению, включая модули 'db' и 'parser'
 if DEBUG:
     tic = lambda: time.time()
@@ -23,11 +23,12 @@ class Main:
     def __init__(self):
         self.url_list = ALL + BRANDS_URLS
         self.products = list()
+        self.from_parse_main = list()
         self.finish_num_page = 30
         self.db = SQLite()
         self.loop = asyncio.get_event_loop()
 
-    def __del__(self):
+    def __del__(self):  # ну мало ли чё..
         if hasattr(self, 'db'):
             self.db.close()
 
@@ -38,21 +39,22 @@ class Main:
             tac = lambda: '{:.2f}sec'.format(time.time() - now)
             print('\r\n> Start update_products_table..')
         # загружаем базу urls страниц товаров с сайта
-        urls = self.loop.run_until_complete(Parser.parse_main(self.url_list, self.finish_num_page))
-        unic_urls = set(urls)  # уникальные ссылки на продукты с сайта
+        if not self.from_parse_main:
+            self.from_parse_main = self.loop.run_until_complete(Parser.parse_main(self.url_list, self.finish_num_page))
+        unic_urls = set(self.from_parse_main)  # уникальные ссылки на продукты с сайта
         url_from_db = set(self.db.get_last_update_products())
         check_urls = unic_urls - url_from_db  # urls, которых нет, либо низкий рейтинг в базе 'products',нужно проверить
         urls_not_instock = url_from_db - unic_urls # urls, которые закончились в магазине
         url_from_db_small_rate = set(self.db.get_products_urls_rating_to_normal())
         urls_to_normal_rate = url_from_db_small_rate & check_urls  # изменить на RATING
-        new_urls = check_urls - url_from_db_small_rate  # записать впервые рейтинг RATING
+        new_urls = list(check_urls - url_from_db_small_rate)  # записать впервые рейтинг RATING
         # по urls находим ключ == code
         if urls_not_instock:
             self.db.update_products_rating_to_1(urls_not_instock)
         if urls_to_normal_rate:
             self.db.update_products_rating_to_normal(urls_to_normal_rate)
         if new_urls:
-            self.products = self.loop.run_until_complete(Parser.parse_details(list(new_urls)))
+            self.products = self.loop.run_until_complete(Parser.parse_details(new_urls))
             if self.products:
                 self.db.to_products(self.products)
             else:
@@ -79,17 +81,20 @@ class Main:
             if DEBUG: print('No items in products table!')
             return False
         prod_codes = [code for code, url in products]
-        prices_from_db = self.db.get_last_update_prices()  # [(code, price, timestamp, rating), (code, ...]  # загружаем цены из базы
+        # загружаем цены из базы
+        prices_from_db = self.db.get_last_update_prices()  # [(code, price, timestamp, rating), (code, ...]
         prices_codes = [code for (code, price, time_, rating) in prices_from_db]  # коды из базы данных
         # новые коды закинуть в таблицу с ценой, временем обновления и рейтингом RATING
         new = set(prod_codes) - set(prices_codes)  # new = появившиеся кроссовки, для которых еще не определена цена
-
         if new:
             new_codes_urls = [(code, url) for (code, url) in products if code in new]
-            new_codes_prices = self.loop.run_until_complete(Parser.parse_price(new_codes_urls))  # найдены цены на товар с www.kant.ru
+            # найдены цены на товар с www.kant.ru
+            new_codes_prices = self.loop.run_until_complete(Parser.parse_price(new_codes_urls))
             # рейтинг для новых кроссовок в базе с 0 стоимостью == 1.
             # начальный рейтинг для новых кроссовок == RATING
-            solution_new_list = [(code, price, timestamp, (lambda i: RATING if i > 0 else 1)(price)) for (code, price) in new_codes_prices]
+            solution_new_list = [(code, price, timestamp, (lambda i: RATING if i > 0 else 1)(price))
+                                 for (code, price) in new_codes_prices
+                                 ]
             if solution_new_list:
                 self.db.to_prices(solution_new_list)
                 if DEBUG: print('new prices to db: ', len(solution_new_list), *solution_new_list, timestamp)
@@ -125,48 +130,53 @@ class Main:
             if DEBUG: print('No items in products table!')
             return False
         codes = [i[0] for i in codes_urls]
-        instock_codes = [i[1].split('/')[5] for i in codes_urls]
-        codes = list(zip(codes, instock_codes))
-        loaded = self.loop.run_until_complete(Parser.parse_available(codes))
+        instock_codes = [int(i[1].split('/')[5]) for i in codes_urls]
+        pair_codes = list(zip(codes, instock_codes))
+        loaded = self.loop.run_until_complete(Parser.parse_available(pair_codes))
         loaded_instock = dict()
-        loaded_instock[SHOP] = dict()
+        shop = SHOPS[0]
+        loaded_instock[shop] = dict()
         for code, instock in loaded:
-            if SHOP in instock.keys():
-                loaded_instock[SHOP][code] = list()
-                for sizes in instock[SHOP]:
-                    loaded_instock[SHOP][code].append((float(sizes[0]), sizes[1], timestamp, RATING))
+            if shop in instock.keys():
+                loaded_instock[shop][code] = list()
+                for sizes in instock[shop]:
+                    loaded_instock[shop][code].append((float(sizes[0]), sizes[1], timestamp, RATING))
         last_update_instock = dict()
-        last_update_instock[SHOP] = dict()
+        last_update_instock[shop] = dict()
         for code, size, count, time_, rate in self.db.get_instock_nagornaya_last_update():
-            if code not in last_update_instock[SHOP].keys():
-                last_update_instock[SHOP][code] = list()
-            last_update_instock[SHOP][code].append((float(size), count, time_, rate))
+            if code not in last_update_instock[shop].keys():
+                last_update_instock[shop][code] = list()
+            last_update_instock[shop][code].append((float(size), count, time_, rate))
 
         # Абсолютно новые кроссовки добавить сразу без проверок, т.к. их еще нет в базе
         new = list()
-        for code in loaded_instock[SHOP].keys():
-            if code not in last_update_instock[SHOP].keys():
-                new.extend([(code, *i) for i in loaded_instock[SHOP][code]])
+        for code in loaded_instock[shop].keys():
+            if code not in last_update_instock[shop].keys():
+                new.extend([(code, *i) for i in loaded_instock[shop][code]])
 
         # Проверить уже имеющиеся на консистентность данных
         updated = list()
         not_instock = list()
 
-        for code in last_update_instock[SHOP].keys():
-            if code in loaded_instock[SHOP].keys():  # если коды из инета и из базы совпадают
-                for size, count, timestmp, rate in last_update_instock[SHOP][code]:  # бегаем по базе
-                    for size_, count_, timestmp_, rate_ in loaded_instock[SHOP][code]:  # бегаем по загруж из инета
+        for code in last_update_instock[shop].keys():
+            if code in loaded_instock[shop].keys():  # если коды из инета и из базы совпадают
+                for size, count, timestmp, rate in last_update_instock[shop][code]:  # бегаем по базе
+                    for size_, count_, timestmp_, rate_ in loaded_instock[shop][code]:  # бегаем по загруж из инета
                         if size == size_ and count != count_:  # если размер из базы совпадает с загруж из инета
                             updated.append((code, size_, count_, timestamp, rate + 1))
                             break
-                last_update_sizes = set(map(lambda x: float(x[0]), last_update_instock[SHOP][code]))
-                loaded_sizes = set(map(lambda x: float(x[0]), loaded_instock[SHOP][code]))
+                last_update_sizes = set(map(lambda x: float(x[0]), last_update_instock[shop][code]))
+                loaded_sizes = set(map(lambda x: float(x[0]), loaded_instock[shop][code]))
                 not_instock_sizes = last_update_sizes - loaded_sizes
                 new_sizes = loaded_sizes - last_update_sizes
-                not_instock.extend([(code, value[0], 0, timestamp, value[3]+1) for value in last_update_instock[SHOP][code] if value[0] in not_instock_sizes])
-                new.extend([(code, value[0], value[1], timestamp, RATING) for value in loaded_instock[SHOP][code] if value[0] in new_sizes])
-        not_instock_codes =  [i[0] for i in self.db.get_instock_codes_with_0_count()]  # коды в базе с размерами, у которых 0 количество
-        not_instock = [item for item in not_instock if item[0] not in not_instock_codes]  # уникальные полученные размеры с 0 количеством, которых еще нет в базе
+                not_instock.extend([(code, value[0], 0, timestamp, value[3]+1)
+                                    for value in last_update_instock[shop][code] if value[0] in not_instock_sizes])
+                new.extend([(code, value[0], value[1], timestamp, RATING)
+                            for value in loaded_instock[shop][code] if value[0] in new_sizes])
+        # коды в базе с размерами, у которых 0 количество
+        not_instock_codes =  [i[0] for i in self.db.get_instock_codes_with_0_count()]
+        # уникальные полученные размеры с 0 количеством, которых еще нет в базе
+        not_instock = [item for item in not_instock if item[0] not in not_instock_codes]
         if new:
             self.db.to_instock_nagornaya(new)
         if updated:
@@ -195,6 +205,8 @@ def main(load_prods=False, load_prices=False, load_instock=False):
             if argv.lower() == 'instock':
                 load_instock = True
     page = Main()
+    # page.finish_num_page = 30
+    # page.url_list = [BRANDS_URLS[0]]
     if hasattr(page, 'db'):  # if normal connect to db
         for i in range(3):
             try:
@@ -206,7 +218,7 @@ def main(load_prods=False, load_prices=False, load_instock=False):
                     load_instock = not page.update_instock_table()
             except ClientConnectionError as err:
                 print('ConnectionError. Reconnect..')
-                time.sleep(10)
+                time.sleep(20)
 
 
 if __name__ == "__main__":
