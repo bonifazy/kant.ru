@@ -61,6 +61,11 @@ class SQLite:
         urls = [i[0] for i in self.cur.fetchall()]
         return urls
 
+    def get_last_update_products_by_brand(self, brand_name):
+        self.cur.execute("SELECT url FROM products WHERE rating >= {} AND brand='{}';".format(RATING, brand_name))
+        urls = [i[0] for i in self.cur.fetchall()]
+        return urls
+
     def get_last_update_prices(self):
         sql="select code_id, price, timestamp, rating from prices group by code_id order by -max(rating);"
         self.cur.execute(sql)
