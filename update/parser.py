@@ -11,90 +11,30 @@ if DEBUG:
 
 class Parser:
 
-    """
-    @staticmethod
-    async def parse_main_(urls: list, finish: int) -> list:
-
-        async def main_page_urls(url_: str, params_: int) -> list:
-            urls = list()
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url_, params={'PAGEN_1': params_}) as response:
-                    html = await response.text()
-            if "kant__catalog__item" in html:  # найти urls всех товаров
-                # Если на странице есть сетка с товаром, то проверяем каждый товар, ищем его url
-                tree = lxml_html.fromstring(html)
-                a_tags = tree.xpath("//div[@class='kant__catalog__item']//a")
-                for item in a_tags:
-                    name = item.values()[1].lower()
-                    if 'кроссовки' in name or 'марафонки' in name:
-                        item_url = 'https://www.kant.ru{}'.format(item.values()[0])
-                        urls.append(item_url)
-            else:  # это вообще не страница с кроссовками, остановить корутины!
-                return list()
-            return urls
-
-        if type(urls) is not list:
-            raise TypeError('Set list of str urls, not more')
-        for i in urls:
-            if not (i.startswith('https://www.kant.ru') or i.startswith('http://www.kant.ru')):
-                raise ValueError('Set correct value to urls, starts with: http(s)://www.kant.ru')
-        if type(finish) is not int:
-            raise TypeError('Set correct value to max pagination: from 1 to 30')
-        if finish < 1 or finish > 30:
-            raise ValueError('Set correct value to max pagination: from 1 to 30')
-        if DEBUG:
-            now = tic()
-            tac = lambda: "{:.2f}sec".format(time.time() - now)
-            print('\r\n>>> Start parse_main at ', time.strftime('%H:%M:%S', time.localtime()))
-        chunk = CHUNK
-        solution_urls = list()
-        all_urls = len(urls)
-        for i, page_url in enumerate(urls):
-            tasks = list()
-            do_search = True
-            for page_num in range(1, finish+1):  # бегаем по страницам каждого url
-                if DEBUG:
-                    # progress bar
-                    print('\r{}, {}/ {} progress. Now {} page of {}\r'.format(
-                        tac(), i+1, all_urls, page_num, page_url), end='')
-                tasks.append(asyncio.create_task(main_page_urls(page_url, page_num)))
-                if len(tasks) == chunk or page_num == finish:
-                    new = await asyncio.gather(*tasks)
-                    for urls_ in new:
-                        if urls_:
-                            solution_urls.extend(urls_)
-                        else:
-                            do_search = False
-                    tasks = list()
-                    await asyncio.sleep(TIMEOUT)
-                if not do_search:  # выходим из листания страниц, если дальше ничего нет
-                    break
-        if DEBUG:
-            print('>>> End parse_main on {} sec. Find {} urls.\n'.format(tac(), len(solution_urls)))
-        return solution_urls
-    """
-
     @staticmethod
     async def parse_main(urls: list, finish: int) -> list:
 
         async def main_page_urls(url_: str, params_: int) -> list:
+
             urls = list()
             async with aiohttp.ClientSession() as session:
                 async with session.get(url_, params={'PAGEN_1': params_}) as response:
                     html = await response.text()
-            if "kant__catalog__item" in html:  # найти urls всех товаров
-                # Если на странице есть сетка с товаром, то проверяем каждый товар, ищем его url
+            if "kant__catalog__item" in html:  # find urls from all shoes items on page
                 tree = lxml_html.fromstring(html)
-                a_tags = tree.xpath("//div[@class='kant__catalog__item']//a")
+                a_tags = tree.xpath("//div[@class='kant__catalog__item']//a")  # links for smth items
                 for item in a_tags:
                     name = item.values()[1].lower()
                     if 'кроссовки' in name or 'марафонки' in name:
+                        # get useful urls to solution
                         item_url = 'https://www.kant.ru{}'.format(item.values()[0])
                         urls.append(item_url)
-            else:  # это вообще не страница с кроссовками, остановить корутины!
+            else:  # its not page with running shoes. Stop coroutines!
                 return list()
+
             return urls
 
+        # Check correct input data
         if type(urls) is not list:
             raise TypeError('Set list of str urls, not more')
         for i in urls:
@@ -108,6 +48,8 @@ class Parser:
             now = tic()
             tac = lambda: "{:.2f}sec".format(time.time() - now)
             print('\r\n>>> Start parse_main at ', time.strftime('%H:%M:%S', time.localtime()))
+
+        # start parsing urls by chunk of tasks
         chunk = CHUNK
         solution_urls = list()
         all_urls = len(urls)
@@ -175,7 +117,8 @@ class Parser:
             if not html:
                 return None, None  # output need tuple return
             code = brand = model = img = rating = None
-            age = gender = year = article = season = use = pronation = ''
+            age = gender = article = season = use = pronation = ''
+            year = 0
             tree = lxml_html.fromstring(html)
             running = False  # Точно ли это кроссовки?
             # commons attrs from xpath objs: values, text, xpath, text_content, keys, label, items, base, attrib
@@ -203,7 +146,7 @@ class Parser:
                     img = 'http://kant.ru' + \
                           tree.xpath("//div[@class='kant__product__color__thumbs']//img")[0].values()[0]
                 else:
-                    img = 'http://kant.ru'
+                    img = 'https://www.kant.ru'
                 for item in tree.xpath("//div[@class='kant__product__detail-item']"):
                     column = str(item.xpath("span[1]/text()")[0])
                     if len(item.xpath("span[2]/text()")) > 0:
@@ -212,8 +155,10 @@ class Parser:
                             age = value
                         if column == 'Пол':
                             gender = value
+                        # год иногда попадается, вида 2021-22, вышедшие по факту в 2021м. Поэтому принимается нач дата
                         if column == 'Модельный год':
-                            year = value
+                            value = value.partition('-')[0]
+                            year = int(value) if value.isdecimal() else 0
                         if column == 'Покрытие':
                             use = value
                         if column == 'Пронация':
@@ -265,7 +210,7 @@ class Parser:
         if DEBUG:
             print('>>> End parse_details on {} sec. Parsed {} items.\n'.format(tac(), len(products)))
 
-        return products  # [(code, brand, model, url, img, age), (code, brand, model, ..), ...,]
+        return products  # [(code, brand, model, url, img, age..), (code, brand, model, ..), ...,]
 
     @staticmethod
     async def parse_price(codes_urls: list) -> list:

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ model }} | Details{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" type="text/css" href="{% static 'logger/css/index.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% for brand, shoes in data.items %}
+        <div class="topic-list">{{ brand }}</div>
+            {% for code, instock in shoes.items %}
+                <div class="topic-list__item">
+                <p>code: {{ code }}; model: {{ instock.0 }}; instock: <i>{{ instock.1 }}</i>;</p>
+                </div>
+            {% endfor %}
+    {% endfor %}
+</div>
+{% endblock %}

@@ -18,6 +18,7 @@ class SQLite:
             print('no access to db.sqlite3 :-(\nEdit DB_NAME in kant/update/settings.py')
 
     def to_products(self, products:list):
+        # type of values:           (int,   str,  str,   str, str, str, str,    int,  str, str,      str, str, int, str)
         sql = 'insert into products (code, brand, model, url, img, age, gender, year, use, pronation, article, ' \
               'season, rating, timestamp) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         self.cur.executemany(sql, products)
@@ -94,6 +95,21 @@ class SQLite:
             self.cur.execute(sql)
             self.conn.commit()
         return self.cur.fetchall()
+
+    def test_products(self):
+        self.cur.execute("SELECT code, brand, model, url, img, age, gender, year, use, pronation, article, season, "
+                         "timestamp, rating FROM products WHERE rating={} LIMIT 1;".format(RATING))
+        return self.cur.fetchone()
+
+    def test_prices(self):
+        self.cur.execute("SELECT code_id, price, timestamp, rating FROM prices WHERE rating={} LIMIT 1;".format(RATING))
+        return self.cur.fetchone()
+
+    def test_instock_nagornaya(self):
+        sql = "SELECT code_id, size, count, timestamp, rating FROM instock_nagornaya WHERE rating={} LIMIT 1;".\
+            format(RATING)
+        self.cur.execute(sql)
+        return self.cur.fetchone()
 
     def close(self):
         if hasattr(SQLite, 'cur') and hasattr(SQLite, 'conn'):

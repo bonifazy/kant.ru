@@ -8,7 +8,7 @@ from aiohttp import ClientConnectionError
 from db import SQLite
 from parser import Parser
 from settings import DEBUG, RATING, ALL, BRANDS_URLS, SHOPS
-# дополнительный лог с помощью print по всему приложению, включая модули 'db' и 'parser'
+# support print to testing for full app, include 'db' и 'parser' modules
 if DEBUG:
     tic = lambda: time.time()
     now = tic()
@@ -21,34 +21,39 @@ else:
 class Main:
 
     def __init__(self):
-        self.url_list = ALL + BRANDS_URLS
-        self.products = list()
-        self.from_parse_main = list()
-        self.finish_num_page = 30
-        self.db = SQLite()
-        self.loop = asyncio.get_event_loop()
-
-    def __del__(self):  # ну мало ли чё..
-        if hasattr(self, 'db'):
-            self.db.close()
+        self.url_list = ALL + BRANDS_URLS  # all used running shoes urls to parsing
+        self.brand = None  # need to test part of database with full work process (operate by all methods)
+        self.products = list()  # cached solution items
+        self.from_parse_main = list()  # cached, if disconnect cases is often
+        self.finish_num_page = 30  # max pagination of each brand
+        self.db = SQLite()  # connect to db
+        self.loop = asyncio.get_event_loop()  # connect to event loop
 
     def update_products_table(self):
-        # обновляем базу 'products'
+        # create new items to 'products' table and update rating to items, which doesn't in stock
+
+        # support to develop, if True
         if DEBUG:
             now = tic()
             tac = lambda: '{:.2f}sec'.format(time.time() - now)
             print('\r\n> Start update_products_table..')
-        # загружаем базу urls страниц товаров с сайта
+        # load urls from www.kant.ru
         if not self.from_parse_main:
             self.from_parse_main = self.loop.run_until_complete(Parser.parse_main(self.url_list, self.finish_num_page))
-        unic_urls = set(self.from_parse_main)  # уникальные ссылки на продукты с сайта
-        url_from_db = set(self.db.get_last_update_products())
-        check_urls = unic_urls - url_from_db  # urls, которых нет, либо низкий рейтинг в базе 'products',нужно проверить
-        urls_not_instock = url_from_db - unic_urls # urls, которые закончились в магазине
-        url_from_db_small_rate = set(self.db.get_products_urls_rating_to_normal())
-        urls_to_normal_rate = url_from_db_small_rate & check_urls  # изменить на RATING
-        new_urls = list(check_urls - url_from_db_small_rate)  # записать впервые рейтинг RATING
-        # по urls находим ключ == code
+        unic_urls = set(self.from_parse_main)  # unic urls, exclude doubles items from list
+        # this if/ else construction need to test all module without load all database and parsing from www.kant.ru site
+        # test and refactoring feature
+        # update one brand, not all table
+        if not self.brand:
+            url_from_db = set(self.db.get_last_update_products())
+        else:
+            url_from_db = set(self.db.get_last_update_products_by_brand(self.brand))
+        check_urls = unic_urls - url_from_db  # check urls, not in stock, or min rating from 'products' table
+        urls_not_instock = url_from_db - unic_urls # out of stock urls
+        url_from_db_small_rate = set(self.db.get_products_urls_rating_to_normal())  # get only small rate
+        urls_to_normal_rate = url_from_db_small_rate & check_urls  # update to normal rate: RATING
+        new_urls = list(check_urls - url_from_db_small_rate)  # set new rate: RATING
+        # get key by url, key == code
         if urls_not_instock:
             self.db.update_products_rating_to_1(urls_not_instock)
         if urls_to_normal_rate:
@@ -67,59 +72,61 @@ class Main:
             print('\tUpdate rate 1 to normal:', urls_to_normal_rate)
             print('\tNew:', len(self.products))
             print('> End update_product_table {}.'.format(tac()))
-        return True  # если все ок
+        return True  # if all ok
 
     def update_prices_table(self):
-        # обновление базы 'prices'
+        # set new prices to new items in 'prices' from new items in 'products' and update prices 'prices' if chanched
+
+        #support dev
         if DEBUG:
             now = tic()
             tac = lambda: '{:.2f}sec'.format(time.time() - now)
             print('\r\n> Start update_prices_table..')
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())  # время для вставки обновления колонок
-        products = self.db.get_products_code_url()  # загружаем коды и url с базы данных
+        timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())  # time to update stamp
+        products = self.db.get_products_code_url()  # get code and url from 'products'
         if not products:
             if DEBUG: print('No items in products table!')
             return False
         prod_codes = [code for code, url in products]
-        # загружаем цены из базы
+        # get prices by codes in 'products' from 'prices' table with max rate
         prices_from_db = self.db.get_last_update_prices()  # [(code, price, timestamp, rating), (code, ...]
-        prices_codes = [code for (code, price, time_, rating) in prices_from_db]  # коды из базы данных
-        # новые коды закинуть в таблицу с ценой, временем обновления и рейтингом RATING
-        new = set(prod_codes) - set(prices_codes)  # new = появившиеся кроссовки, для которых еще не определена цена
+        prices_codes = [code for (code, price, time_, rating) in prices_from_db]  # only codes
+        # new codes set to 'prices': code, price, timestamp, RATING
+        new = set(prod_codes) - set(prices_codes)  # new shoes, prices not define, need parse
         if new:
-            new_codes_urls = [(code, url) for (code, url) in products if code in new]
-            # найдены цены на товар с www.kant.ru
-            new_codes_prices = self.loop.run_until_complete(Parser.parse_price(new_codes_urls))
-            # рейтинг для новых кроссовок в базе с 0 стоимостью == 1.
-            # начальный рейтинг для новых кроссовок == RATING
+            new_codes_urls = [(code, url) for (code, url) in products if code in new]  # get pairs code: url for parsing
+            new_codes_prices = self.loop.run_until_complete(Parser.parse_price(new_codes_urls))  # code: price for items
+            # if price == 0, set rate == 1.
+            # starting rate for new normal price == RATING
             solution_new_list = [(code, price, timestamp, (lambda i: RATING if i > 0 else 1)(price))
                                  for (code, price) in new_codes_prices
                                  ]
             if solution_new_list:
                 self.db.to_prices(solution_new_list)
                 if DEBUG: print('new prices to db: ', len(solution_new_list), *solution_new_list, timestamp)
-        # для моделей вышедших из магазина, но появившихся снова, рейтинг 1+1 = 2
-        old = set(prices_codes) & set(prod_codes)  # проверите, уже имеющиеся, обновить, если новая цена, увеличить рейтинг +1
+        # if item was not in stock and now update yet, rate 1+1 = 2
+        old = set(prices_codes) & set(prod_codes)  # check existing or update for new price find, increment rate +1
         if old:
             old_codes_urls = [(code, url) for (code, url) in products if code in old]
             updated_codes_prices = self.loop.run_until_complete(Parser.parse_price(old_codes_urls))
             solution_old_list = list()
-            for upd_code, upd_price in updated_codes_prices:  # бегаем по загруженной с инета базе цен
-                for db_code, db_price, time_, rating in prices_from_db:   # ищем эти же цены по коду товара из базы данных
-                    if upd_code == db_code and upd_price != db_price:  # код найден и цены различны
-                        if upd_price != 0:  # если товар в продаже и изменилась стоимость
-                            solution_old_list.append((upd_code, upd_price, timestamp, rating+1))
-                        else:  # если стоимость обнулилась либо не найдена графа стоимости в карточке товара
-                            solution_old_list.append((upd_code, upd_price, timestamp, 1))
+            for upd_code, upd_price in updated_codes_prices:  # iterate for loaded db from site
+                for db_code, db_price, time_, rating in prices_from_db:   # check equal prices from db and site
+                    if upd_code == db_code and upd_price != db_price:  # code is equal and price is updated?
+                        if upd_price != 0:  # item in stock and price real is update
+                            solution_old_list.append((upd_code, upd_price, timestamp, rating+1))  # set new price toitem
+                        else:  # price is 0 or price column not found in prices card
+                            solution_old_list.append((upd_code, upd_price, timestamp, 1))  # set not in stock price
                         break
-            if solution_old_list:
+            if solution_old_list:  # set new price and rate conditions-- update existing items
                 self.db.to_prices(solution_old_list)
                 if DEBUG: print('\tupdate prices in db: ', len(solution_old_list), *solution_old_list, timestamp)
         if DEBUG: print('> End update_prices_table on {}.'.format(tac()))
-        return True  # если все ок
+        return True  # if all ok
 
     def update_instock_table(self):
-        # обновление базы 'instock_nagornaya'
+        # set new instock availability of each size of each item, update existing availability and set to 0 not in stock
+        # items. Working table: 'instock_nagornaya'
         if DEBUG:
             now = tic()
             tac = lambda: '{:.2f}sec'.format(time.time() - now)
@@ -205,9 +212,7 @@ def main(load_prods=False, load_prices=False, load_instock=False):
             if argv.lower() == 'instock':
                 load_instock = True
     page = Main()
-    # page.finish_num_page = 30
-    # page.url_list = [BRANDS_URLS[0]]
-    if hasattr(page, 'db'):  # if normal connect to db
+    if hasattr(page, 'db'):  # normal connect to db
         for i in range(3):
             try:
                 if load_prods:
@@ -216,7 +221,7 @@ def main(load_prods=False, load_prices=False, load_instock=False):
                     load_prices = not page.update_prices_table()
                 if load_instock:
                     load_instock = not page.update_instock_table()
-            except ClientConnectionError as err:
+            except ClientConnectionError as err:  # as usual in LTE connection from phone
                 print('ConnectionError. Reconnect..')
                 time.sleep(20)
 

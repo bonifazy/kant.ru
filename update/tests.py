@@ -1,5 +1,4 @@
 import asyncio
-import aiohttp
 from aiounittest import AsyncTestCase
 from unittest import TestCase, main, skipIf
 
@@ -8,25 +7,8 @@ from main import Main
 from db import SQLite
 from settings import ALL, SHOPS, BRANDS_URLS
 
-SKIP = False  # set False to check all tests
+SKIP = True  # set False to check all tests
 # more cases relevant only in july- aug 2021
-
-
-@skipIf(SKIP, 'skip asyncio run and tear down')
-class TestAsyncio(TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestAsyncio, self).__init__(*args, **kwargs)
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(None)
-
-    def test_temp(self):
-        async def func():
-            await asyncio.sleep(1)
-            self.assertEqual(777, 777)
-        self.loop.run_until_complete(func())
-
-    def test_tear_down(self):
-        self.loop.close()
 
 
 @skipIf(SKIP, 'skip deep loading parse_main')
@@ -83,7 +65,7 @@ class TestAsyncParseMain(AsyncTestCase):
 class TestAsyncParseDetails(AsyncTestCase):
 
     async def test_parse_details_correct_data(self):
-        cases = ['https://www.kant.ru/catalog/product/2780445/', 'https://www.kant.ru/catalog/product/3052137/',
+        cases = ['https://www.kant.ru/catalog/product/1693473/', 'https://www.kant.ru/catalog/product/3052137/',
                  'https://www.kant.ru/catalog/product/2906145/'
                  ]
         solution_count_positions = 14
@@ -97,8 +79,19 @@ class TestAsyncParseDetails(AsyncTestCase):
                                   type(solution[8]), type(solution[9]), type(solution[10]), type(solution[11]),
                                   type(solution[12]), type(solution[13])
                                   ),
-                                 (int, str, str, str, str, str, str, str, str, str, str, str, int, str)
+                                 (int, str, str, str, str, str, str, int, str, str, str, str, int, str)
                                  )
+
+    # TODO проверить!!!
+    async def test_parse_details_correct_year(self):
+        cases = ['https://www.kant.ru/catalog/product/1693473/', 'https://www.kant.ru/catalog/product/2783417/']
+        for i in cases:
+            with self.subTest(case=i):
+                response = await Parser.parse_details([i])
+                solution = response[0]
+                self.assertIsNot(solution[7], 0)
+                self.assertGreater(solution[7], 2015)
+                self.assertLess(solution[7], 2050)
 
     async def test_parse_details_bad_url(self):
         case = 'https://www.kant.ru/catalog/product/7777777/'
@@ -146,7 +139,7 @@ class TestAsyncParsePrice(AsyncTestCase):
 
 @skipIf(SKIP, 'skip deep loading parse_available')
 class TestAsyncParseAvailable(AsyncTestCase):
-    # @skipIf(SKIP, '')
+
     async def test_parse_available_correct_data(self):
         cases = [(1648135, 3006103), (1653643, 3052219)]
         for (code, url_code) in cases:
@@ -182,6 +175,65 @@ class TestAsyncParseAvailable(AsyncTestCase):
         case = [('1648135', '3006103')]  # support only int, not str type
         with self.assertRaises(TypeError):
             await Parser.parse_available(case)
+
+
+# полноценный вызов главной функции
+@skipIf(SKIP, 'skip main page parsing')
+class TestMain(TestCase):
+
+    # TODO проверить
+    def test_update_products(self):
+        main_page = Main()
+        main_page.url_list = [BRANDS_URLS[8]]  # url to products "On running" brand
+        main_page.brand = 'On'
+        main_page.update_products_table()
+
+
+class TestDb(TestCase):
+    """
+    Test django database by ordered by logger/models.py
+    model Product mapping to 'products' table in database
+    model Prices mapping to 'prices' table
+    model InstockNagornaya mapping to 'instock_nagornaya' table
+    """
+
+    def __init__(self, *args, **quargs):
+        super(TestDb, self).__init__(*args, **quargs)
+        self.db = SQLite()
+
+    def test_connect(self):
+        self.assertIsNotNone(self.db.conn)
+
+    def test_products_contains(self):
+        solution = self.db.test_products()
+        self.assertEqual(len(solution), 14)  # count of fields
+        # Products 'products' fields: code, brand, model, url, img, age, gender, year, use, pronation, article,
+        #   season, timestamp, rating
+        self.assertEqual((type(solution[0]), type(solution[1]), type(solution[2]), type(solution[3]),
+                          type(solution[4]), type(solution[5]), type(solution[6]), type(solution[7]),
+                          type(solution[8]), type(solution[9]), type(solution[10]), type(solution[11]),
+                          type(solution[12]), type(solution[13])
+                          ),
+                         (int, str, str, str, str, str, str, int, str, str, str, str, str, int)
+                         )  # true ordering
+        self.assertGreater(solution[0], 1_000_000)  # check correct code value
+        self.assertLess(solution[0], 2_000_000)  # correct code: 1_000_000 < code < 2_000_000
+
+    def test_prices_contains(self):
+        solution = self.db.test_prices()
+        self.assertEqual(len(solution), 4)  # count of fields
+        # Prices 'prices' fields: code_id, price, timestamp, rating
+        self.assertEqual((type(solution[0]), type(solution[1]), type(solution[2]), type(solution[3])),
+                        (int, int, str, int)
+                        )  # true ordering
+
+    def test_instock_nagornaya(self):
+        solution = self.db.test_instock_nagornaya()
+        self.assertEqual(len(solution), 5)  # count of fields
+        # InstockNagornaya 'instock_nagornaya' fields: code_id, size, count, timestamp, rating
+        self.assertEqual((type(solution[0]), type(solution[1]), type(solution[2]), type(solution[3]), type(solution[4])),
+                         (int, float, int, str, int)
+                         )  # true ordering
 
 
 if __name__ == '__main__':
