@@ -1,21 +1,23 @@
-import asyncio
+import os.path
+from os import remove
 from aiounittest import AsyncTestCase
 from unittest import TestCase, main, skipIf
+from pathlib import Path
 
 from parser import Parser
 from main import Main
 from db import SQLite
-from settings import ALL, SHOPS, BRANDS_URLS
+from settings import SHOPS, BRANDS_URLS, CSV_FILE, JSON_FILE, XML_FILE
 
-SKIP = True  # set False to check all tests
-# more cases relevant only in july- aug 2021
+SKIP = False  # set False to check all tests
+# more cases relevant only in oct- nov 2021
 
 
-@skipIf(SKIP, 'skip deep loading parse_main')
+@skipIf(SKIP, 'skip parse_main')
 class TestAsyncParseMain(AsyncTestCase):
 
     async def test_parse_main_correct_data(self):
-        cases = (['http://www.kant.ru/brand/brooks/products/'], [BRANDS_URLS[-1]], ALL)
+        cases = (['http://www.kant.ru/brand/brooks/products/'], [BRANDS_URLS[-1]])
         solution_str = 'https://www.kant.ru/catalog/product'  # any solution item must be starts with this str
         for i in cases:
             with self.subTest(case=i):
@@ -61,7 +63,7 @@ class TestAsyncParseMain(AsyncTestCase):
             await Parser.parse_main(case, 40)
 
 
-@skipIf(SKIP, 'skip deep loading parse_details')
+@skipIf(SKIP, 'skip parse_details')
 class TestAsyncParseDetails(AsyncTestCase):
 
     async def test_parse_details_correct_data(self):
@@ -82,7 +84,6 @@ class TestAsyncParseDetails(AsyncTestCase):
                                  (int, str, str, str, str, str, str, int, str, str, str, str, int, str)
                                  )
 
-    # TODO проверить!!!
     async def test_parse_details_correct_year(self):
         cases = ['https://www.kant.ru/catalog/product/1693473/', 'https://www.kant.ru/catalog/product/2783417/']
         for i in cases:
@@ -109,7 +110,7 @@ class TestAsyncParseDetails(AsyncTestCase):
             await Parser.parse_details(case)
 
 
-@skipIf(SKIP, 'skip deep loading parse_price')
+@skipIf(SKIP, 'skip parse_price')
 class TestAsyncParsePrice(AsyncTestCase):
 
     async def test_parse_price_correct_data(self):
@@ -137,11 +138,11 @@ class TestAsyncParsePrice(AsyncTestCase):
             await Parser.parse_price(case)
 
 
-@skipIf(SKIP, 'skip deep loading parse_available')
+@skipIf(SKIP, 'skip parse_available')
 class TestAsyncParseAvailable(AsyncTestCase):
 
     async def test_parse_available_correct_data(self):
-        cases = [(1648135, 3006103), (1653643, 3052219)]
+        cases = [(1663184, 3094643), (1648135, 3006103), (1653643, 3052219)]
         for (code, url_code) in cases:
             with self.subTest(case=(code, url_code)):
                 response = await Parser.parse_available([(code, url_code)])
@@ -151,9 +152,9 @@ class TestAsyncParseAvailable(AsyncTestCase):
                 size_value = response_instock[is_shops[0]][0]
                 self.assertEqual(response_code, code)  # первый параметр-- код, тот же, что и на входе
                 self.assertEqual(type(response_instock), dict)  # вывод в dict(), магазины и размерный ряд в них
-                self.assertTrue(is_shops)  # [хотя бы в в 1 магазине есть хотя бы 1 товар
+                self.assertTrue(is_shops)  # хотя бы в в 1 магазине есть хотя бы 1 товар
                 self.assertEqual(type(size_value), tuple)  # в dict магазинов действительно находятся пары: size, count
-                self.assertTrue(''.join(size_value[0].split('.')).isdecimal())  # графа 'размер' содержит float значение
+                self.assertEqual(type(size_value[0]), float)  # графа 'размер' содержит float значение
                 self.assertEqual(type(size_value[1]), int)  # значение количества товара определенного размера в int
 
     async def test_parse_available_reversed_codes(self):
@@ -177,28 +178,45 @@ class TestAsyncParseAvailable(AsyncTestCase):
             await Parser.parse_available(case)
 
 
-# полноценный вызов главной функции
+# True start main parsing class.
+# Run after filling 'products' table from test_update_products() and test_update_prices() or uncomment these cases
 @skipIf(SKIP, 'skip main page parsing')
 class TestMain(TestCase):
 
-    # TODO проверить
     def test_update_products(self):
-        main_page = Main()
-        main_page.url_list = [BRANDS_URLS[8]]  # url to products "On running" brand
-        main_page.brand = 'On'
-        main_page.update_products_table()
+        main_page = Main('On')
+        solution = main_page.update_products_table()
+        self.assertTrue(solution)
+
+    def test_update_prices(self):
+        main_page = Main('Brooks')
+        # uncomment the lines below if 'products' table is empty (if this brand does not exist)
+        # solution = main_page.update_prices_table()
+        # self.assertTrue(solution)
+        solution = main_page.update_prices_table()
+        self.assertTrue(solution)
+
+    def test_update_instock(self):
+        main_page = Main('Saucony')
+        # uncomment the lines below if 'products' table is empty (if this brand does not exist)
+        # solution = main_page.update_instock_table()
+        # self.assertTrue(solution)
+        solution = main_page.update_instock_table()
+        self.assertTrue(solution)
 
 
+@skipIf(SKIP, 'skip test db')
 class TestDb(TestCase):
     """
     Test django database by ordered by logger/models.py
     model Product mapping to 'products' table in database
     model Prices mapping to 'prices' table
     model InstockNagornaya mapping to 'instock_nagornaya' table
+    Use after filling all working tables. See README.txt or main.py
     """
 
-    def __init__(self, *args, **quargs):
-        super(TestDb, self).__init__(*args, **quargs)
+    def __init__(self, *args, **kwargs):
+        super(TestDb, self).__init__(*args, **kwargs)
         self.db = SQLite()
 
     def test_connect(self):
@@ -227,14 +245,115 @@ class TestDb(TestCase):
                         (int, int, str, int)
                         )  # true ordering
 
-    def test_instock_nagornaya(self):
+    def test_instock_nagornaya(self):  # others instock_... tables work similarly
         solution = self.db.test_instock_nagornaya()
         self.assertEqual(len(solution), 5)  # count of fields
         # InstockNagornaya 'instock_nagornaya' fields: code_id, size, count, timestamp, rating
-        self.assertEqual((type(solution[0]), type(solution[1]), type(solution[2]), type(solution[3]), type(solution[4])),
-                         (int, float, int, str, int)
+        self.assertEqual((type(solution[0]), type(solution[2]), type(solution[3]), type(solution[4])),
+                         (int, int, str, int)
+                         )  # true ordering
+        size_is_digit = (type(solution[1]) == float) or (type(solution[1]) == int)
+        self.assertTrue(size_is_digit)
+
+    def test_export_card_and_price(self):
+        solution = self.db.export_card_and_price()
+        self.assertEqual(type(solution), list)
+        self.assertEqual(len(solution[0]), 13)
+        # Products 'products' fields: code, model, brand, price, url, img, age, gender, year, use, pronation, article,
+        #   season
+        self.assertEqual((type(solution[0][0]), type(solution[0][1]), type(solution[0][2]), type(solution[0][3]),
+                          type(solution[0][4]), type(solution[0][5]), type(solution[0][6]), type(solution[0][7]),
+                          type(solution[0][8]), type(solution[0][9]), type(solution[0][10]), type(solution[0][11]),
+                          type(solution[0][12])
+                          ),
+                         (int, str, str, int, str, str, str, str, int, str, str, str, str)
                          )  # true ordering
 
+    def test_export_card_and_price_by_code(self):
+        solution = self.db.export_card_and_price(1646099)
+        self.assertEqual(type(solution), list)
+        self.assertEqual(len(solution[0]), 13)
+        # Products 'products' fields: code, model, brand, price, url, img, age, gender, year, use, pronation, article,
+        #   season
+        self.assertEqual((type(solution[0][0]), type(solution[0][1]), type(solution[0][2]), type(solution[0][3]),
+                          type(solution[0][4]), type(solution[0][5]), type(solution[0][6]), type(solution[0][7]),
+                          type(solution[0][8]), type(solution[0][9]), type(solution[0][10]), type(solution[0][11]),
+                          type(solution[0][12])
+                          ),
+                         (int, str, str, int, str, str, str, str, int, str, str, str, str)
+                         )  # true ordering
 
-if __name__ == '__main__':
+    def test_export_availability(self):
+        solution = self.db.export_available(1646099)
+        self.assertTrue(type(solution), dict)  # real card description if ok or code is incorrect if Test Error happen
+        self.assertGreater(len(solution.keys()), 1)
+        for i in solution.items():
+            with self.subTest(case=i):
+                self.assertTrue(i[0] == '_comment' or i[0] in SHOPS)
+                value = i[1]
+                if type(value) == str:
+                    self.assertTrue(value.startswith('format'))  # comment finded
+                else:  # instock list finded
+                    self.assertEqual(type(value), dict)
+                    size = next(iter(value.items()))[0]
+                    self.assertTrue(1 < size < 15)
+                    count = next(iter(value.items()))[1]
+                    self.assertTrue(0 < count < 20)
+
+
+@skipIf(SKIP, 'skip test db')
+class TestExport(TestCase):
+    """
+    Test export card description to popular formats. Use after filling all working tables.
+    See README.txt or main.py
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(TestExport, self).__init__(*args, **kwargs)
+        self.page = Main()
+        self.parent_dir = Path(__file__).resolve().parent
+
+    def test_export_csv(self):
+        # without 'to' parameter
+        self.csv_file = os.path.join(self.parent_dir, CSV_FILE)  # path + file with any OS
+        if os.path.isfile(self.csv_file):
+            remove(self.csv_file)
+        self.assertTrue(not os.path.isfile(self.csv_file))  # absolutely not on the disk
+        self.page.export()
+        self.assertTrue(os.path.isfile(self.csv_file))
+
+        # with 'to' parameter
+        if os.path.isfile(self.csv_file):
+            remove(self.csv_file)
+        self.assertTrue(not os.path.isfile(self.csv_file))  # absolutely not on the disk
+        self.page.export(to='csv')
+        self.assertTrue(os.path.isfile(self.csv_file))
+        if os.path.isfile(self.csv_file):
+            remove(self.csv_file)
+        self.assertTrue(not os.path.isfile(self.csv_file))  # absolutely not on the disk
+
+    def test_export_json(self):
+        self.json_file = os.path.join(self.parent_dir, JSON_FILE)
+        if os.path.isfile(self.json_file):
+            remove(self.json_file)
+        self.assertTrue(not os.path.isfile(self.json_file))  # absolutely not on the disk
+        self.page.export(to='json')
+        self.assertTrue(os.path.isfile(self.json_file))
+        if os.path.isfile(self.json_file):
+            remove(self.json_file)
+        self.assertTrue(not os.path.isfile(self.json_file))  # absolutely not on the disk
+
+    def test_export_xml(self):
+        self.xml_file = os.path.join(self.parent_dir, XML_FILE)
+        if os.path.isfile(self.xml_file):
+            remove(self.xml_file)
+        self.assertTrue(not os.path.isfile(self.xml_file))  # absolutely not on the disk
+        self.page.export(to='xml')
+        self.assertTrue(os.path.isfile(self.xml_file))
+        if os.path.isfile(self.xml_file):
+            remove(self.xml_file)
+        self.assertTrue(not os.path.isfile(self.xml_file))  # absolutely not on the disk
+
+
+if __name__ == "__main__":
     main()

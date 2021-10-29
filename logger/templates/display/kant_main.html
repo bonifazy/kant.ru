@@ -1,21 +1,21 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ model }} | Details{% endblock %}
+{% block title %}Running shoes price and available analyser | www.kant.ru parser{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" type="text/css" href="{% static 'logger/css/index.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    {% for brand, shoes in data.items %}
-        <div class="topic-list">{{ brand }}</div>
-            {% for code, instock in shoes.items %}
-                <div class="topic-list__item">
-                <p>code: {{ code }}; model: {{ instock.0 }}; instock: <i>{{ instock.1 }}</i>;</p>
-                </div>
-            {% endfor %}
-    {% endfor %}
+    <div class="row">
+        <div class="col-9">
+            {% include "display/brand_list.html" %}
+        </div>
+        <div class="col-3">
+            {% include "display/category.html" %}
+        </div>
+    </div>
 </div>
 {% endblock %}

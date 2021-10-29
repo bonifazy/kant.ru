@@ -1,6 +1,6 @@
 {% load static %}
 
-<!doctype html>
+<!DOCTYPE html>
 
 <html lang="en">
 <head>
@@ -20,16 +20,16 @@
     {% block nav %}
         <nav class="navigation navbar navbar-expand-lg navbar-light bg-light">
             <div class="container-fluid">
-                <a class="navbar-brand" href="#">kant.ru Logger</a>
+                <a class="navbar-brand" href="{% url 'index' %}">Your profile</a>
 
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="#">Updated models</a>
+                            <a class="nav-link active" aria-current="page" href="#">Analyse price | availability</a>
                         </li>
                     </ul>
                     <form class="d-flex">
-                        <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+                        <input class="form-control me-2" type="search" placeholder="by brand, model, code.." aria-label="search">
                         <button class="btn btn-outline-success" type="submit">Search</button>
                     </form>
                 </div>

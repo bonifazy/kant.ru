@@ -1,21 +1,28 @@
 
-#            для модуля 'main', 'parser', 'db'
+#            for: 'main.py', 'parser.py', 'db.py'
 #
-# дополнительный лог с помощью print по всему приложению, включая модули 'db' и 'parser'
+# Additional print() extra info about parsing or working with database
 DEBUG = True
 
-# начальный рейтинг для таблиц products, prices, instock_nagornaya
-RATING = 4
+# Starting rating (updating) for items, this prices and this availability (sizes) of
+# 'products', 'prices', 'instock_...' tables
+# Normal state rating: 1
+# Not in stock rating: 0
+# Updated status rating: increment of current
+RATING = 1
 
-#            для модуля 'main'
+#            for: 'main.py'
 #
-# одинаковый формат записи, как в выгрузке размеров с AVAILABLE запроса
+# Similar recording format as in the size upload from AVAILABLE request
 SHOPS = ('Nagornaya', 'Timiryazevskaya', 'TeplyStan', 'Altufevo')
 
-# ссылки на беговые модели кроссовок на заполнение и обновление базы данных
-ALL = ['https://www.kant.ru/catalog/shoes/running-shoes/']
+# Brand names to distribute main description items to starting addition to 'products' table and availability to
+# 'instock' tables more correctly
 BRANDS = ['Asics', 'Saucony', 'Mizuno', 'Hoka', 'Adidas', 'Salomon', 'Brooks', 'On', '361°', 'Raidlight']
+
+# Links to append and update items, prices and avalaibility items-- running shoes
 BRANDS_URLS = [
+    'https://www.kant.ru/catalog/shoes/running-shoes/',
     'https://www.kant.ru/catalog/shoes/running-shoes/brand-asics/',
     'https://www.kant.ru/catalog/shoes/running-shoes/brand-saucony/',
     'https://www.kant.ru/catalog/shoes/running-shoes/brand-mizuno/',
@@ -25,19 +32,34 @@ BRANDS_URLS = [
     'https://www.kant.ru/brand/brooks/products/',
     'https://www.kant.ru/brand/on/products/',
     'https://www.kant.ru/brand/361/products/',
+    'https://www.kant.ru/brand/raidlight/products/'
 ]
 
+# json file to export card description (an optional)
+JSON_FILE = 'card.json'
+
+# csv file to export card description (as default in 'to' parameter from export() method)
+CSV_FILE = 'card.csv'
+
+# csv file to export card description (as default in 'to' parameter from export() method)
+XML_FILE = 'card.xml'
+
 #
-#            для модуля 'db'
+#            for: 'db.py'
 #
+# Database file. Starting tables structure from Django project, so 'id' is optional (not used explicitly from this proj)
 DB_NAME = 'db.sqlite3'
 
 #
-#            для модуля 'parser'
+#            for: 'parser.py'
 #
-# таймаут между порциями параллельных загрузок, сек
-TIMEOUT = 0.2
-# количество параллельных GET- запросов за 1 порцию
-CHUNK = 5
-# ссылка для загрузки размерной линейки, приходит json с размерами и количеством во всех магазинах сети
+# Timeout between parallel page loads, sec: as usual from 0.2 to 1 sec.
+TIMEOUT = 0.4
+
+# Count of parallel loads per one async working request, urls to parallel work: as usual from 5 to 30.
+CHUNK = 20
+
+# Link to get size, this count of items on each running shoes by this code
+# response return json of all departments of kant.ru local shops with size, count and id of offline shop by unic id
+# which depends on unic 'code'
 AVAILABLE = "http://www.kant.ru/ajax/loadTableAvailability.php"

@@ -55,12 +55,39 @@ class Kant(models.Model):
 
     class Meta:
         abstract = True
-        verbose_name_plural = 'Наличие'
-        verbose_name = 'Остаток'
-        ordering = ['-rating', '-timestamp']
 
 
 class InstockNagornaya(Kant):
 
     class Meta(Kant.Meta):
         db_table = 'instock_nagornaya'
+        verbose_name_plural = 'Склад Нагорная'
+        verbose_name = 'Размеры'
+        ordering = ['-rating', '-timestamp']
+
+
+class InstockTimiryazevskaya(Kant):
+
+    class Meta(Kant.Meta):
+        db_table = 'instock_timiryazevskaya'
+        verbose_name_plural = 'Склад Тимирязевская'
+        verbose_name = 'Размеры'
+        ordering = ['-rating', '-timestamp']
+
+
+class InstockAltufevo(Kant):
+
+    class Meta(Kant.Meta):
+        db_table = 'instock_altufevo'
+        verbose_name_plural = 'Склад Алтуфьево'
+        verbose_name = 'Размеры'
+        ordering = ['-rating', '-timestamp']
+
+
+class InstockTeplyStan(Kant):
+
+    class Meta(Kant.Meta):
+        db_table = 'instock_teply_stan'
+        verbose_name_plural = 'Склад Тёплый Стан'
+        verbose_name = 'Размеры'
+        ordering = ['-rating', '-timestamp']

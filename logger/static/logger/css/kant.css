@@ -2,9 +2,6 @@
     margin-bottom: 20px;
 }
 
-.topic-list__item {
-    margin-bottom: 20px;
-}
 
 .category {
     background-color: #f7f7f7;
@@ -30,4 +27,21 @@
     color: #ff0000;
 
     display: inline-block;
+}
+
+table.table {
+      border-collapse: separate;
+      border-spacing: 0;
+}
+
+tr:nth-child(odd) {
+    background-color: #f9f9f9;
+}
+
+tr:nth-child(even) {
+    background-color: #f6f6f6;
+}
+
+th {
+    background-color: #f0f0f0;
 }

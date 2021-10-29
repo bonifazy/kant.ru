@@ -1,19 +1,21 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ model }} | Details{% endblock %}
+{% block title %}{{ data.0}} | Details{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" type="text/css" href="{% static 'logger/css/index.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    <div class="topic-list">{{ brand }}</div>
-    {% for item in codes %}
-    <div class="topic-list__item">
-        <p>{{ item.0 item.1 item.2}}</p>
+    <div class="row">
+        <div class="col-9">
+            {% include "display/brand_list.html" %}
+        </div>
+        <div class="col-3">
+            {% include "display/category.html" %}
+        </div>
     </div>
-    {% endfor %}
 </div>
 {% endblock %}
