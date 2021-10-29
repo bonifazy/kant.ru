@@ -1,0 +1,47 @@
+.navigation {
+    margin-bottom: 20px;
+}
+
+
+.category {
+    background-color: #f7f7f7;
+    padding: 10px;
+}
+
+.test {
+    font-family: "Roboto", "Lucida Grande";
+    font-style: italic;
+    font-weight: bold;
+    font-size: 30px;
+
+    color: #ff0000;
+    background-color: #00ff00;
+}
+
+.test2 {
+    height: 50px;
+    padding: 10px;
+    border: 5px solid #aaaaaa;
+    margin: 10px;
+
+    color: #ff0000;
+
+    display: inline-block;
+}
+
+table.table {
+      border-collapse: separate;
+      border-spacing: 0;
+}
+
+tr:nth-child(odd) {
+    background-color: #f9f9f9;
+}
+
+tr:nth-child(even) {
+    background-color: #f6f6f6;
+}
+
+th {
+    background-color: #f0f0f0;
+}

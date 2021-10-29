@@ -1,0 +1,28 @@
+<div class="topic-list">
+    {% for brand, shoes in data.items %}
+    {% if data.keys|length == 1 %}
+    <div>
+        <span>{{ brand }}</span>
+        <span>{% lorem %}</span>
+    </div>
+    {% endif %}
+    {% if data.keys|length > 1 %}
+    <div>
+        <a href="{% url 'brand_details' brand %}">{{ brand }}</a>
+    </div>
+    {% endif %}
+    <div>
+        <table class="table table-sm">
+            <tbody>
+                {% for code, instock in shoes.items %}
+                <tr>
+                <td><p>{{ code }} {% if instock.1 == 'man' %}m{% elif instock.1 == 'woman' %}w{% endif %} {{ instock.0 }}</p></td>
+                <td><i>{{ instock.2 }}</i> руб.</td>
+                <td>*{% if instock.3 == True %}*{% endif %}{% if instock.4 > 0 and instock.4 < 3 %}*{% endif %}{% if instock.4 >= 3 %}**{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</div>
