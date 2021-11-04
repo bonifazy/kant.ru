@@ -23,3 +23,4 @@ db.sqlite3-journal
 __pypackages__/
 env/
 .idea/
+.django_secret
