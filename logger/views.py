@@ -10,6 +10,7 @@ def index(request):
 
 
 def brand_details(request, brand):
+    brand = brand.title()
     data = dict()
     data[brand] = dict()
     q = Q(code_id__brand=brand) & ~Q(code_id__prices__price=0) & ~Q(count=0)
@@ -98,6 +99,7 @@ def kant_main(request):
             content = [model, gender, price, is_count_gte_3_sizes, sizes_count]
             items_dict[code] = content
         # set dict with key = code, sorted by price from max
+        # return desc popular brands by sales count
         data[brand] = dict(sorted(items_dict.items(), key=lambda x: x[1][2], reverse=True))
 
     return render(request, 'display/kant_main.html', context={'data': data})

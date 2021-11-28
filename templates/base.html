@@ -20,17 +20,20 @@
     {% block nav %}
         <nav class="navigation navbar navbar-expand-lg navbar-light bg-light">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{% url 'index' %}">Your profile</a>
+                <a class="navbar-brand" href="{% url 'index' %}">Dim | Профиль</a>
 
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link active" aria-current="page" href="#">Analyse price | availability</a>
+                            <a class="nav-link active" aria-current="page" href="#">Динамика ценообразования</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="#">Товародвижение и продажи</a>
                         </li>
                     </ul>
                     <form class="d-flex">
-                        <input class="form-control me-2" type="search" placeholder="by brand, model, code.." aria-label="search">
-                        <button class="btn btn-outline-success" type="submit">Search</button>
+                        <input class="form-control me-2" type="search" placeholder="код товара, название.." aria-label="search">
+                        <button class="btn btn-outline-success" type="submit">Искать!</button>
                     </form>
                 </div>
             </div>

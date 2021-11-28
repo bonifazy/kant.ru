@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Running shoes price and available analyser | www.kant.ru parser{% endblock %}
+{% block title %}Популярные продажи www.kant.ru{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
@@ -10,11 +10,11 @@
 {% block content %}
 <div class="container">
     <div class="row">
-        <div class="col-9">
-            {% include "display/brand_list.html" %}
+        <div class="col-2">
+            {% include "display/left_addition.html" %}
         </div>
-        <div class="col-3">
-            {% include "display/category.html" %}
+        <div class="col-10">
+            {% include "display/brand_list.html" %}
         </div>
     </div>
 </div>

@@ -1,47 +1,59 @@
 .navigation {
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
-
 
 .category {
-    background-color: #f7f7f7;
-    padding: 10px;
-}
-
-.test {
-    font-family: "Roboto", "Lucida Grande";
-    font-style: italic;
-    font-weight: bold;
-    font-size: 30px;
-
-    color: #ff0000;
-    background-color: #00ff00;
-}
-
-.test2 {
-    height: 50px;
-    padding: 10px;
-    border: 5px solid #aaaaaa;
+    width: 100%;
+    font-size: 8pt;
+    background: #fafaff;
     margin: 10px;
-
-    color: #ff0000;
-
-    display: inline-block;
+    padding: 10px;
 }
 
-table.table {
-      border-collapse: separate;
-      border-spacing: 0;
+table {
+    width: 100%;
+    background: #fafaff;
+    margin: 10px;
 }
 
-tr:nth-child(odd) {
-    background-color: #f9f9f9;
-}
-
-tr:nth-child(even) {
-    background-color: #f6f6f6;
+table.products {
+    border-collapse: collapse;
+    table-layout: fixed;
 }
 
 th {
-    background-color: #f0f0f0;
+    text-align: left;
+}
+
+td.brand {
+    font-size: 10pt;
+    width: 20%;
+    vertical-align: top;
+    text-align: left;
+    background: #fafaff;
+    padding: 14px;
+    border-top-right-radius: 20px;
+}
+
+td.items {
+    font-size: 10pt;
+    text-align: left;
+    background: #fafaff;
+    padding: 10px;
+}
+
+td.price {
+    width: 150px;
+}
+
+td.rate {
+    width: 70px;
+}
+
+tr:nth-child(odd) {
+    background-color: #f9e9e9;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f3f3;
 }
