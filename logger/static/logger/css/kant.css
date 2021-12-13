@@ -1,19 +1,96 @@
-.navigation {
-    margin-bottom: 10px;
+h1 {
+font-size: 14pt;
+text-align: center;
+margin: 1em auto;
 }
 
-.category {
-    width: 100%;
-    font-size: 8pt;
-    background: #fafaff;
-    margin: 10px;
-    padding: 10px;
+h2 {
+font-size: 12pt;
+text-align: center;
+margin: 1em auto;
+}
+
+h3 {
+font-size: 11pt;
+text-align: center;
+margin: 1em auto;
+}
+
+h4 {
+font-size: 10pt;
+text-align: center;
+margin: 1em auto;
 }
 
 table {
     width: 100%;
-    background: #fafaff;
     margin: 10px;
+}
+
+th {
+    text-align: left;
+}
+
+a {
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+a:hover {
+    color: #0000ff;
+    text-decoration: underline;
+}
+
+a.left {
+    margin: 1px;
+    padding: 1px;
+    padding-left: 5px;
+    padding-right: 5px;
+    color: #000088;
+    background: #ffe1e1;
+    border: 1px solid #d7d7ff;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+}
+
+.category {
+    width: 100%;
+    min-width: 170px;  /* for left filter menu */
+    font-size: 9pt;
+    line-height: 2;
+    background: #f9f1f1;
+    margin-top: 10px;
+    margin-left: 20px;
+    padding: 10px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    border-bottom-left-radius: 7px;
+    border-bottom-right-radius: 7px;
+}
+
+.category-item {
+    margin: 5;
+}
+
+.brand-btn {
+    text-align: right;
+    vertical-align: top;
+}
+
+button.btn-small {
+    padding: 0px;
+    margin-top: 10px;
+    width: 110px;
+    height: 25px;
+}
+
+.centered {
+text-align: center;
+background: #f1f1f9;
+margin: 50px;
 }
 
 table.products {
@@ -21,25 +98,24 @@ table.products {
     table-layout: fixed;
 }
 
-th {
-    text-align: left;
-}
-
 td.brand {
     font-size: 10pt;
     width: 20%;
     vertical-align: top;
     text-align: left;
-    background: #fafaff;
+    background: #f9f1f1;
     padding: 14px;
-    border-top-right-radius: 20px;
+    border-top-left-radius: 7px;
+    border-bottom-left-radius: 7px;
 }
 
 td.items {
     font-size: 10pt;
     text-align: left;
-    background: #fafaff;
+    background: #f9f1f1;
     padding: 10px;
+    border-top-right-radius: 7px;
+    border-bottom-right-radius: 7px;
 }
 
 td.price {
@@ -51,9 +127,9 @@ td.rate {
 }
 
 tr:nth-child(odd) {
-    background-color: #f9e9e9;
+    background-color: #ffe1e1;
 }
 
 tr:nth-child(even) {
-    background-color: #f9f3f3;
+    background-color: #e9dfdf;
 }

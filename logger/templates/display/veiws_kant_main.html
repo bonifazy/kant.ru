@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Популярные продажи www.kant.ru{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-2">
+            {% include "display/left_addition.html" %}
+        </div>
+        <div class="col-10">
+            {% include "display/right_brand_items_list.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

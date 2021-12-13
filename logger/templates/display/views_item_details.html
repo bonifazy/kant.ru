@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ item.model }} | Подробная информация{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-2">
+            {% include "display/left_addition.html" %}
+        </div>
+        <div class="col-10">
+            {% include "display/item_description.html" %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

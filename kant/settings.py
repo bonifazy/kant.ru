@@ -2,7 +2,7 @@ from pathlib import Path
 import logger.apps
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PARENT = Path(__file__).resolve().parent.parent.parent.joinpath('data/')
+DB_PARENT = Path(__file__).resolve().parent.parent.parent.joinpath('data/')  # folder to database
 DB_FILE = DB_PARENT.joinpath('db.sqlite3')
 PROJECT_ROOT = BASE_DIR
 

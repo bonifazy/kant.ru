@@ -18,10 +18,16 @@
 <body>
     <div>
     {% block nav %}
-        <nav class="navigation navbar navbar-expand-lg navbar-light bg-light">
+        <nav class="navigation navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{% url 'index' %}">Dim | Профиль</a>
-
+                <button class="navbar-toggler ml-auto" type="button" data-toggle="collapse" data-target="#nav1">
+                    <span class="navbar-toggler-icon my-toggler"></span>
+                </button>
+                <a class="navbar-brand" href="{% url 'index' %}">
+                    {% if user %}
+                    <span class="user_menu_logo"><b> . . . </b></span>{{ user }}
+                    {% endif %}
+                </a>
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
@@ -31,8 +37,8 @@
                             <a class="nav-link active" aria-current="page" href="#">Товародвижение и продажи</a>
                         </li>
                     </ul>
-                    <form class="d-flex">
-                        <input class="form-control me-2" type="search" placeholder="код товара, название.." aria-label="search">
+                    <form class="d-flex" action="{% url 'index' %}">
+                        <input class="form-control me-2" type="search" placeholder="..." aria-label="search" name="q">
                         <button class="btn btn-outline-success" type="submit">Искать!</button>
                     </form>
                 </div>

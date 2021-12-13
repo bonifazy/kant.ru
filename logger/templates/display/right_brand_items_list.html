@@ -1,7 +1,7 @@
 <div class="topic-list">
     <table class="products">
         <tr>
-            <td class="brand"><div></div></td>
+            <td class="brand"><div>Основная статистика по бренду</div></td>
             <td class="items">
                 <div>
                     <table class="table table-sm">
@@ -25,18 +25,25 @@
         <tr>
             <td class="brand">
                 <div>
-                {# for brands and items sales info, main info page #}
-                {% if data.keys|length == 1 %}
-                    <div><b>{{ brand }}</b></div>
-                {% endif %}
+                    <div>
+                        {# если запрос содержит только один бренд #}
+                        {% if data.keys|length == 1 %}
+                            <b>{{ brand }}</b>
+                        {% endif %}
 
-                {# for single brand detail sales info #}
-                {% if data.keys|length > 1 %}
-                    <div><b><a href="{% url 'brand_details' brand %}">{{ brand }}</a></b></div>
+                        {# в запросе много брендов #}
+                        {% if data.keys|length > 1 %}
+                            <b><a href="{% url 'brand_details' brand %}">{{ brand }}</a></b></div>
+                        {% endif %}
+                    </div>
                     <div>Продано за месяц, шт: </div>
                     <div>Топ продаж: </div>
                     <div>Изменение стоимости: </div>
-                {% endif %}
+                    {% if data.keys|length > 1 %}
+                        <div class="brand-btn">
+                            <a href="{% url 'brand_details' brand %}"><button class="btn btn-small btn-primary">Подробнее..</button></a>
+                        </div>
+                    {% endif %}
                 </div>
             </td>
             <td class="items">

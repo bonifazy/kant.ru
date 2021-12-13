@@ -1,22 +1,68 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q, F, Sum, Max
+from django.http import Http404
+from django.contrib.auth.models import User
 
-from .models import InstockNagornaya
+from .models import Products, InstockNagornaya
+
+
+def not_found(request, exception):
+    context = {
+        'request': exception
+    }
+    return render(request, 'errors/404.html', context=context, status=404)
 
 
 def index(request):
-    # перекинуть, т.к. проебал js заглушку
-    return redirect('kant_main')
+
+    # search field
+    success = True
+    items = None
+    q = request.GET.get('q')
+    if q is not None:
+        if q.isdigit():
+            code = int(q)
+            if 1_000_000 < code < 2_500_000:
+                #try:
+                #    item = Products.objects.get(code=code)
+                #except Products.DoesNotExist:
+                #    success = False
+                item = get_object_or_404(Products, code=code)
+                return render(request, 'display/views_item_details.html', {'item': item})
+        if len(q) < 30:
+            brand = q.lower().title()
+            try:
+                items = Products.objects.filter(brand=brand)
+            except Products.DoesNotExist:
+                success = False
+        if success:
+            return brand_details(request, brand)
+        else:
+            try:
+                items = Products.objects.filter(model__icontains=q)
+            except Products.DoesNotExist:
+                success = False
+            return items_list(request, items)
+        if not success:
+            return not_found(request, q)
+    return redirect('/kant/')
 
 
 def brand_details(request, brand):
-    brand = brand.title()
+
+    brand = brand.lower().title()
+    items_in_list = 50
     data = dict()
     data[brand] = dict()
+
     q = Q(code_id__brand=brand) & ~Q(code_id__prices__price=0) & ~Q(count=0)
     prods = [i[0] for i in InstockNagornaya.objects.filter(q).values('code_id').order_by(F('rate').desc()). \
-        annotate(rate=Max('rating')).values_list('code_id')[:50]
+        annotate(rate=Max('rating')).values_list('code_id')[:items_in_list]
              ]
+
+    if not prods:
+        return not_found(request, 'brand')
+
     for code in prods:
         # get last update sizes from item
         items = InstockNagornaya.objects.filter(code_id=code).values('size'). \
@@ -49,21 +95,31 @@ def brand_details(request, brand):
         content = [model, gender, price, is_count_gte_3_sizes, sizes_count]
         data[brand][code] = content
 
-    return render(request, 'display/brand_details.html', context={'data': data})
+    return render(request, 'display/views_brand_details.html', context={'data': data})
+
+
+def items_list(request, items):
+    context = items
+    return render(request, 'display/views_items_list.html')
 
 
 def kant_main(request):
+
     data = dict()
     items_in_brand = 5
 
     # Most popular brands by sales
     brands_for_rating = [i[0] for i in InstockNagornaya.objects.values('code_id__brand').order_by(F('rate').desc()).\
         annotate(rate=Sum('rating')).values_list('code_id__brand')]
+
+    if not brands_for_rating:
+        raise Http404
+
     for brand in brands_for_rating:
         # 10 most popular (for rating (last updates), than price) models
         q = Q(code_id__brand=brand) & ~Q(code_id__prices__price=0) & ~Q(count=0)
         prods = [i[0] for i in InstockNagornaya.objects.filter(q).values('code_id').order_by(F('rate').desc()).\
-                    annotate(rate=Max('rating')).values_list('code_id')[:items_in_brand]
+            annotate(rate=Max('rating')).values_list('code_id')[:items_in_brand]
                  ]
         items_dict = dict()
         for code in prods:
@@ -101,8 +157,9 @@ def kant_main(request):
         # set dict with key = code, sorted by price from max
         # return desc popular brands by sales count
         data[brand] = dict(sorted(items_dict.items(), key=lambda x: x[1][2], reverse=True))
+        user = User.objects.all()[0]
 
-    return render(request, 'display/kant_main.html', context={'data': data})
+    return render(request, 'display/views_kant_main.html', context={'data': data, 'user': user})
 
 
 """
