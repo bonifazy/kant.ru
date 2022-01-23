@@ -31,8 +31,23 @@ th {
     text-align: left;
 }
 
+tr.trLink {
+    cursor: pointer;
+}
+tr.trLink:hover {
+   /*TR-HOVER-STYLES*/
+}
+
+tr.trLink a{
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+tr.trLink:hover a{
+   /*LINK-HOVER-STYLES*/
+}
+
 a {
-    text-align: center;
     text-decoration: none;
     white-space: nowrap;
 }
@@ -54,6 +69,11 @@ a.left {
     border-top-right-radius: 15px;
     border-bottom-left-radius: 15px;
     border-bottom-right-radius: 15px;
+}
+
+img.shoes {
+    width: 200px;
+    display: block;
 }
 
 .category {

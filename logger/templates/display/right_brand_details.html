@@ -1,0 +1,56 @@
+{# статистика по бренду и основные продаваемые модели #}
+
+<div class="topic-list">
+    <table class="products">
+        <tr>
+            <td class="brand"><div>Основная статистика по бренду</div></td>
+            <td class="items">
+                <div>
+                    <table class="table table-sm">
+                        <thead>
+                        <tr>
+                            <th>Модель</th>
+                            <th>Стоимость</th>
+                            <th>Нагорная</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr><td></td><td class="price"></td><td class="rate"></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <table class="products">
+        <tr>
+            <td class="brand">
+                <div>
+                    <div><b>{{ brand }}</b></div>
+                    <div>Продано за месяц, шт: </div>
+                    <div>Топ продаж: </div>
+                    <div>Изменение стоимости: </div>
+                </div>
+            </td>
+            <td class="items">
+                <div>
+                    <table class="table table-sm">
+                    <tbody>
+                        {% for code, properties in data.items %}
+                        <tr class="trLink" onclick="document.location='{% url 'index' %}?q={{ code }}'">
+                                <td>
+                                    <a href="{% url 'index' %}?q={{ code }}">
+                                    <p><small>{% if properties.1 == 'man' %}m{% elif properties.1 == 'woman' %}w{% endif %}</small> {{ properties.0 }}</p>
+                                    </a>
+                                </td>
+                                <td class="price"><i>{{ properties.2 }}</i> руб.</td>
+                                <td class="rate">*{% if properties.3 == True %}*{% endif %}{% if properties.4 > 0 and properties.4 < 3 %}*{% endif %}{% if properties.4 >= 3 %}**{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    </table>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>

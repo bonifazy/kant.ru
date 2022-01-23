@@ -1,0 +1,19 @@
+{# список моделей по определенным характеристикам #}
+
+<div class="topic-list">
+    <table class="table table-sm">
+        <tbody>
+            {% for code, item in data.items %}
+            <tr class="trLink" onclick="document.location='{% url 'index' %}?q={{ code }}'">
+                <td>
+                    <a href="{% url 'index' %}?q={{ code }}">
+                        <p>{{ code }} {{ item.brand }} {{ item.model }}</p>
+                    </a>
+                </td>
+                <td class="price"><i>{{ item.prices_set.first.price }}</i> руб.</td>
+                <td class="rate">*{% if item.instocknagornaya_set.first.rating == True %}*{% endif %}{% if instock.4 > 0 and instock.4 < 3 %}*{% endif %}{% if instock.4 >= 3 %}**{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

@@ -1,3 +1,5 @@
+{# все бренды с краткой статистикой и основные продаваемые модели по ним #}
+
 <div class="topic-list">
     <table class="products">
         <tr>
@@ -51,10 +53,14 @@
                     <table class="table table-sm">
                         <tbody>
                             {% for code, instock in shoes.items %}
-                            <tr>
-                            <td><p>{{ code }} {% if instock.1 == 'man' %}m{% elif instock.1 == 'woman' %}w{% endif %} {{ instock.0 }}</p></td>
-                            <td class="price"><i>{{ instock.2 }}</i> руб.</td>
-                            <td class="rate">*{% if instock.3 == True %}*{% endif %}{% if instock.4 > 0 and instock.4 < 3 %}*{% endif %}{% if instock.4 >= 3 %}**{% endif %}</td>
+                            <tr class="trLink" onclick="document.location='{% url 'index' %}?q={{ code }}'">
+                                <td>
+                                    <a href="{% url 'index' %}?q={{ code }}">
+                                    <p>{{ code }} {% if instock.1 == 'man' %}m{% elif instock.1 == 'woman' %}w{% endif %} {{ instock.0 }}</p>
+                                    </a>
+                                </td>
+                                <td class="price"><i>{{ instock.2 }}</i> руб.</td>
+                                <td class="rate">*{% if instock.3 == True %}*{% endif %}{% if instock.4 > 0 and instock.4 < 3 %}*{% endif %}{% if instock.4 >= 3 %}**{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>

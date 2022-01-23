@@ -3,7 +3,7 @@ from django.db.models import Q, F, Sum, Max
 from django.http import Http404
 from django.contrib.auth.models import User
 
-from .models import Products, InstockNagornaya
+from .models import Products, Prices, InstockNagornaya
 
 
 def not_found(request, exception):
@@ -15,37 +15,33 @@ def not_found(request, exception):
 
 def index(request):
 
-    # search field
-    success = True
+    # searching form
     items = None
     q = request.GET.get('q')
     if q is not None:
+        q = q.strip()
         if q.isdigit():
             code = int(q)
             if 1_000_000 < code < 2_500_000:
-                #try:
-                #    item = Products.objects.get(code=code)
-                #except Products.DoesNotExist:
-                #    success = False
                 item = get_object_or_404(Products, code=code)
-                return render(request, 'display/views_item_details.html', {'item': item})
-        if len(q) < 30:
+                return single_item(request, item)
+        if len(q) < 20:
             brand = q.lower().title()
-            try:
-                items = Products.objects.filter(brand=brand)
-            except Products.DoesNotExist:
-                success = False
-        if success:
-            return brand_details(request, brand)
-        else:
-            try:
-                items = Products.objects.filter(model__icontains=q)
-            except Products.DoesNotExist:
-                success = False
+            items = Products.objects.filter(brand=brand)
+            if len(items) > 0:
+                return brand_details(request, brand=brand)
+        model = q
+        items = Products.objects.filter(model__icontains=model)
+        if len(items) > 0:
             return items_list(request, items)
-        if not success:
-            return not_found(request, q)
+        return not_found(request, exception=q)
     return redirect('/kant/')
+
+
+def single_item(request, item):
+    user = User.objects.first().username
+
+    return render(request, 'display/views_single_item.html', {'item': item, 'user': user})
 
 
 def brand_details(request, brand):
@@ -53,37 +49,35 @@ def brand_details(request, brand):
     brand = brand.lower().title()
     items_in_list = 50
     data = dict()
-    data[brand] = dict()
-
+    # условия фильтрации: поиск по бренду, товар точно в наличии, смотреть размеры в наличии
     q = Q(code_id__brand=brand) & ~Q(code_id__prices__price=0) & ~Q(count=0)
-    prods = [i[0] for i in InstockNagornaya.objects.filter(q).values('code_id').order_by(F('rate').desc()). \
-        annotate(rate=Max('rating')).values_list('code_id')[:items_in_list]
-             ]
-
+    items = InstockNagornaya.objects.filter(q).values('code_id').order_by(F('rate').desc()).\
+                annotate(rate=Max('rating')).values_list('code_id')[:items_in_list]
+    prods = [i[0] for i in items]
     if not prods:
         return not_found(request, 'brand')
 
     for code in prods:
-        # get last update sizes from item
-        items = InstockNagornaya.objects.filter(code_id=code).values('size'). \
-            order_by(F('rate').desc()).annotate(rate=Max('rating')). \
-            values_list('size', 'code_id__model', 'code_id__prices__price', 'code_id__gender')
-        sizes = [i[0] for i in items]
+        item = Products.objects.get(code=code)
+        model = item.model
+        gender = item.gender
+        price = item.prices_set.values('price').order_by(F('rate').desc()).annotate(rate=Max('rating')).\
+            values_list('price').first()[0]
 
-        # count of sizes in stock more or equal than 3
+        # последние обновленные размеры товара в наличии
+        sizes = InstockNagornaya.objects.filter(code_id=code).values('size').order_by(F('rate').desc()).\
+            annotate(rate=Max('rating')).values_list('size')
+        sizes = list(map(lambda x: float(x[0]), sizes))
+
+        # размерная сетка в наличии по данному товару (по коду товара), шт, больше 3, да/ нет
         is_count_gte_3_sizes = True if len(sizes) > 3 else False
-
-        item = items[0]
-        model = item[1]
-        price = item[2]
-        gender = item[3]
 
         popular_man = [9, 9.5, 10, 10.5, 11]
         popular_woman = [8, 8.5, 9, 9.5, 10]
         popular_sizes = list()
         if gender in ('мужской', 'man', 'унисекс'):
             gender = 'man'
-        elif gender in ('женский', 'woman', 'унисекс'):
+        elif gender in ('женский', 'woman'):
             gender = 'woman'
         else:
             gender = None
@@ -92,23 +86,29 @@ def brand_details(request, brand):
         elif gender == 'woman':
             popular_sizes = [i for i in sizes if i in popular_woman]
         sizes_count = len(popular_sizes)
-        content = [model, gender, price, is_count_gte_3_sizes, sizes_count]
-        data[brand][code] = content
 
-    return render(request, 'display/views_brand_details.html', context={'data': data})
+        data[code] = [model, gender, price, is_count_gte_3_sizes, sizes_count]
+        user = User.objects.first().username
+
+    return render(request, 'display/views_brand_details.html', context={'brand': brand, 'data': data, 'user': user})
 
 
-def items_list(request, items):
-    context = items
-    return render(request, 'display/views_items_list.html')
+def items_list(request, content):
+    q = Q(rating=1) &Q(prices__price__gt=0)  # фильтр: выводить только в наличии
+
+    items = content.filter(q).order_by(F('rate').desc()).annotate(rate=Max('instocknagornaya__rating'))
+    data = {item.code: item for item in items}
+    user = User.objects.first().username
+
+    return render(request, 'display/views_items_list.html', context={'data': data, 'user': user})
 
 
 def kant_main(request):
 
     data = dict()
-    items_in_brand = 5
+    items_in_brand = 5  # список товаров в рамках одного бренда
 
-    # Most popular brands by sales
+    # популярность бренда относительно частоты продаж
     brands_for_rating = [i[0] for i in InstockNagornaya.objects.values('code_id__brand').order_by(F('rate').desc()).\
         annotate(rate=Sum('rating')).values_list('code_id__brand')]
 
@@ -123,23 +123,22 @@ def kant_main(request):
                  ]
         items_dict = dict()
         for code in prods:
-            # get last update sizes from item
+            # актуальная размерная сетка товара
             items = InstockNagornaya.objects.filter(code_id=code).values('size').\
-                order_by(F('rate').desc()).annotate(rate=Max('rating')).\
+                    order_by(F('rate').desc()).annotate(rate=Max('rating')).\
                 values_list('size', 'code_id__model', 'code_id__prices__price', 'code_id__gender')
             sizes = [i[0] for i in items]
-            # print(sizes)
-
-            # count of sizes in stock more or equal than 3
+            # item.4 размерная линейка точно больше 3 размеров
             is_count_gte_3_sizes = True if len(sizes) > 3 else False
 
             item = items[0]
             model = item[1]
-            price = item[2]
+            price = item[2]  # TODO проверить точно ли актуальная стоимость?
             gender = item[3]
 
             popular_man = [9, 9.5, 10, 10.5, 11]
             popular_woman = [8, 8.5, 9, 9.5, 10]
+            porular_unisex = [8.5, 9, 9.5, 10, 10.5]
             popular_sizes = list()
             if gender in ('мужской', 'man', 'унисекс'):
                 gender = 'man'
@@ -151,13 +150,17 @@ def kant_main(request):
                 popular_sizes = [i for i in sizes if i in popular_man]
             elif gender == 'woman':
                 popular_sizes = [i for i in sizes if i in popular_woman]
+            elif gender is None:
+                popular_sizes = [i for i in sizes if i in porular_unisex]
+            # item.4 количество размеров, подходящих под популярные
             sizes_count = len(popular_sizes)
+            #            0     1       2          3                 4
             content = [model, gender, price, is_count_gte_3_sizes, sizes_count]
             items_dict[code] = content
-        # set dict with key = code, sorted by price from max
+        # словарь продуктов, сортировка по стоимости по убыванию
         # return desc popular brands by sales count
         data[brand] = dict(sorted(items_dict.items(), key=lambda x: x[1][2], reverse=True))
-        user = User.objects.all()[0]
+        user = User.objects.first().username
 
     return render(request, 'display/views_kant_main.html', context={'data': data, 'user': user})
 

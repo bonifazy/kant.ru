@@ -1,7 +1,9 @@
+{# статистика по бренду и основные продаваемые модели #}
+
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ data.0}} | Подробная информация{% endblock %}
+{% block title %}{{ brand }} | Подробная информация{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
@@ -14,7 +16,7 @@
             {% include "display/left_addition.html" %}
         </div>
         <div class="col-10">
-            {% include "display/right_brand_items_list.html" %}
+            {% include "display/right_brand_details.html" %}
         </div>
     </div>
 </div>

@@ -1,9 +1,9 @@
-{# список моделей по определенным характеристикам #}
+{# Одиночный элемент с описанием #}
 
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Сборная солянка{% endblock %}
+{% block title %}{{ item.model }} | Подробная информация{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" type="text/css" href="{% static 'logger/css/kant.css' %}">
@@ -16,7 +16,10 @@
             {% include "display/left_addition.html" %}
         </div>
         <div class="col-10">
-            {% include "display/right_items_list.html" %}
+            <div class="category">
+                <img class="shoes" src="{{ item.img }}">
+                <p>{{ item.code }}</p><p><b>{{ item.brand }}</b> {{ item.model }} {{ item.prices_set.first.price }}</p>
+            </div>
         </div>
 
     </div>
